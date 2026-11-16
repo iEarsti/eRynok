@@ -1,1 +1,1 @@
-# eRinok
+# eRynok
