@@ -1,0 +1,210 @@
+﻿<!DOCTYPE html>
+<html lang="uk">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>eRynok — Маркетплейс</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- Шапка сайту -->
+  <header class="header">
+    <div class="header-container">
+      <div class="logo" id="logoBtn">e<span>Rynok</span></div>
+      
+      <div class="search-bar" id="searchBarBlock">
+        <input type="text" id="searchInput" placeholder="Я шукаю...">
+        <button id="searchBtn">Знайти</button>
+      </div>
+
+      <!-- Блок статусу / авторизації -->
+      <div class="header-user" id="userAuthContainer"></div>
+    </div>
+  </header>
+
+  <!-- ================= СТОРІНКА ПОКУПЦЯ (КАТАЛОГ) ================= -->
+  <main id="viewBuyer" class="view-section active">
+    <div class="main-container">
+      <aside class="sidebar">
+        <h3>Каталог</h3>
+        <ul id="categoriesList" class="categories-list">
+          <li class="active" data-id="all">Усі товари</li>
+        </ul>
+      </aside>
+
+      <section class="catalog">
+        <h2 id="catalogTitle">Всі товари</h2>
+        <div id="productsGrid" class="products-grid"></div>
+      </section>
+    </div>
+  </main>
+
+  <!-- ================= СТОРІНКА ПРОДАВЦЯ ================= -->
+  <main id="viewSeller" class="view-section">
+    <div class="panel-container">
+      <div class="panel-header">
+        <h2>Кабінет продавця: <span id="sellerStoreName"></span></h2>
+        <p>Керування товарами вашого магазину</p>
+      </div>
+
+      <div class="panel-grid">
+        <!-- Форма додавання / редагування товару -->
+        <div class="panel-card">
+          <h3 id="productFormTitle">Додати новий товар</h3>
+          <form id="createProductForm">
+            <input type="hidden" id="editProdId" value="">
+
+            <div class="form-group-field">
+              <label>Назва товару</label>
+              <input type="text" id="newProdName" required placeholder="Наприклад: Ноутбук Lenovo">
+            </div>
+
+            <div class="form-group-field">
+              <label>Ціна (₴)</label>
+              <input type="number" id="newProdPrice" required min="1" placeholder="25000">
+            </div>
+
+            <div class="form-group-field">
+              <label>Категорія</label>
+              <select id="newProdCategory" required></select>
+            </div>
+
+            <div class="form-group-field">
+              <label>Посилання на фото (URL)</label>
+              <input type="url" id="newProdImage" placeholder="https://images.unsplash.com/...">
+            </div>
+
+            <!-- Блок попереднього перегляду фото -->
+            <div class="form-group-field">
+              <label>Попередній перегляд фото</label>
+              <div class="preview-box">
+                <img id="formImgPreview" src="https://via.placeholder.com/200?text=Прев'ю+фото" alt="Прев'ю товару">
+              </div>
+            </div>
+
+            <div class="form-group-field">
+              <label>Опис товару</label>
+              <textarea id="newProdDesc" rows="3" placeholder="Характеристики та опис..."></textarea>
+            </div>
+
+            <button type="submit" id="productFormSubmitBtn" class="primary-btn full-width">Опублікувати товар</button>
+            <button type="button" id="cancelEditBtn" class="cancel-btn full-width" style="display: none; margin-top: 8px;">Скасувати редагування</button>
+          </form>
+        </div>
+
+        <!-- Список товарів продавця з мініатюрами -->
+        <div class="panel-card">
+          <h3>Мої товари в продажу</h3>
+          <div id="sellerProductsList" class="custom-list"></div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- ================= СТОРІНКА АДМІНІСТРАТОРА ================= -->
+  <main id="viewAdmin" class="view-section">
+    <div class="panel-container">
+      <div class="panel-header">
+        <h2>Панель адміністратора</h2>
+        <p>Моніторинг замовлень системи та керування категоріями</p>
+      </div>
+
+      <div class="panel-grid">
+        <!-- Створення категорій -->
+        <div class="panel-card">
+          <h3>Додати нову категорію</h3>
+          <form id="createCategoryForm">
+            <div class="form-group-field">
+              <label>Назва категорії</label>
+              <input type="text" id="newCatName" required placeholder="Побутова техніка">
+            </div>
+            <button type="submit" class="primary-btn full-width">Створити категорію</button>
+          </form>
+        </div>
+
+        <!-- Список замовлень -->
+        <div class="panel-card span-2">
+          <h3>Усі замовлення платформи</h3>
+          <div id="adminOrdersList" class="orders-table-wrapper"></div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- ================= МОДАЛЬНІ ВІКНА ================= -->
+
+  <!-- Вікно авторизації -->
+  <div id="loginModal" class="modal">
+    <div class="modal-content modal-auth">
+      <div class="modal-header">
+        <h3>Вхід у систему</h3>
+        <button class="close-btn" onclick="closeModal('loginModal')">&times;</button>
+      </div>
+      <div class="modal-body">
+        <label for="userSelect">Оберіть обліковий запис для входу:</label>
+        <select id="userSelect" class="form-select"></select>
+
+        <p class="auth-hint">Або введіть Email користувача вручну:</p>
+        <input type="email" id="loginEmailInput" placeholder="name@example.com" class="form-input">
+
+        <button id="loginSubmitBtn" class="primary-btn full-width" style="margin-top: 16px;">Увійти</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Деталі товару -->
+  <div id="productDetailModal" class="modal">
+    <div class="modal-content product-modal-content">
+      <button class="close-btn" onclick="closeModal('productDetailModal')">&times;</button>
+      <div class="modal-product-body">
+        <img id="detailImg" src="" alt="Товар" class="detail-img">
+        <div class="detail-info">
+          <h2 id="detailTitle"></h2>
+          <div class="detail-price"><span id="detailPrice"></span> ₴</div>
+          <div class="detail-desc-title">Опис:</div>
+          <p id="detailDesc" class="detail-desc"></p>
+          <button id="detailBuyBtn" class="primary-btn">Купити</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Оформлення замовлення -->
+  <div id="checkoutModal" class="modal">
+    <div class="modal-content checkout-modal-content">
+      <div class="modal-header">
+        <h3>Оформлення замовлення</h3>
+        <button class="close-btn" onclick="closeModal('checkoutModal')">&times;</button>
+      </div>
+
+      <div class="checkout-body">
+        <div class="checkout-product-summary">
+          <img id="orderImg" src="" alt="" class="summary-img">
+          <div>
+            <h4 id="orderTitle"></h4>
+            <div class="summary-price"><span id="orderUnitPrice"></span> ₴ / шт.</div>
+          </div>
+        </div>
+
+        <div class="form-group-inline">
+          <label for="orderQuantity">Кількість:</label>
+          <div class="quantity-control">
+            <button type="button" id="qtyMinusBtn">-</button>
+            <input type="number" id="orderQuantity" value="1" min="1" max="99">
+            <button type="button" id="qtyPlusBtn">+</button>
+          </div>
+        </div>
+
+        <div class="checkout-total">
+          Сума до оплати: <strong><span id="orderTotalPrice">0</span> ₴</strong>
+        </div>
+
+        <button id="confirmOrderBtn" class="primary-btn full-width">Підтвердити замовлення</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
