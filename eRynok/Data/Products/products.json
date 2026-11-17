@@ -1,0 +1,32 @@
+[
+  {
+    "Id": 1,
+    "Name": "Samsung Galaxy S25",
+    "Description": "Smartphone with 256GB storage",
+    "Price": 35999,
+    "ImageUrl": "https://example.com/samsung-s25.jpg",
+    "CategoryId": 1,
+    "UserId": 1,
+    "CreatedAt": "2026-11-17T02:22:57.4626065Z"
+  },
+  {
+    "Id": 2,
+    "Name": "Apple MacBook Air M4",
+    "Description": "Laptop with 16GB RAM and 512GB SSD",
+    "Price": 52999,
+    "ImageUrl": "https://example.com/macbook-air.jpg",
+    "CategoryId": 2,
+    "UserId": 2,
+    "CreatedAt": "2026-11-17T02:22:57.4627332Z"
+  },
+  {
+    "Id": 3,
+    "Name": "\u043E\u0434\u044F\u0433",
+    "Description": "\u043F\u0440\u043E\u0441\u0442\u043E \u043E\u0434\u044F\u0433",
+    "Price": 100000000,
+    "ImageUrl": "https://example.com/closes.jpg",
+    "CategoryId": 4,
+    "UserId": 1,
+    "CreatedAt": "2026-11-17T10:07:10.6135512Z"
+  }
+]

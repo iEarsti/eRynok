@@ -1,0 +1,27 @@
+[
+  {
+    "Id": 1,
+    "Name": "Smartphones",
+    "Description": "Mobile phones and smartphones"
+  },
+  {
+    "Id": 2,
+    "Name": "Laptops",
+    "Description": "Laptops and notebooks"
+  },
+  {
+    "Id": 3,
+    "Name": "Home Appliances",
+    "Description": "Appliances for home use"
+  },
+  {
+    "Id": 4,
+    "Name": "Clothing",
+    "Description": "Clothing, shoes and accessories"
+  },
+  {
+    "Id": 5,
+    "Name": "Computer Components",
+    "Description": "Computer hardware and components"
+  }
+]

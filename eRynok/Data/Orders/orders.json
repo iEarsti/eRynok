@@ -1,0 +1,20 @@
+[
+  {
+    "Id": 1,
+    "BuyerId": 4,
+    "ProductId": 1,
+    "Quantity": 1,
+    "UnitPrice": 35999,
+    "Status": 1,
+    "CreatedAt": "2026-11-17T09:56:56.1875406Z"
+  },
+  {
+    "Id": 2,
+    "BuyerId": 4,
+    "ProductId": 1,
+    "Quantity": 2,
+    "UnitPrice": 35999,
+    "Status": 0,
+    "CreatedAt": "2026-11-17T09:57:06.3856456Z"
+  }
+]
