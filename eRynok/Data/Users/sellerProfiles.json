@@ -2,11 +2,13 @@
   {
     "UserId": 2,
     "Phone": "",
-    "Address": ""
+    "Address": "",
+    "User": null
   },
   {
     "UserId": 1,
     "Phone": "\u002B380501234567",
-    "Address": "Kyiv, Ukraine"
+    "Address": "Kyiv, Ukraine",
+    "User": null
   }
 ]
