@@ -5,7 +5,7 @@ using eRynok.DTOs.Categories;
 
 namespace eRynok.Controllers
 {
-    [ApiController]
+   [ApiController]
     [Route("api/[controller]")]
     public class CategoriesController : ControllerBase
     {
@@ -17,17 +17,17 @@ namespace eRynok.Controllers
         }
 
         [HttpGet]
-        public IActionResult GetCategories([FromQuery] string? search)
+        public async Task<IActionResult> GetCategories([FromQuery] string? search)
         {
-            var categories = _categoryService.GetCategories(search);
+            var categories = await _categoryService.GetCategories(search);
 
             return Ok(categories);
         }
 
         [HttpGet("{id}")]
-        public IActionResult GetCategory(int id)
+        public async Task<IActionResult> GetCategory(int id)
         {
-            var category = _categoryService.GetCategory(id);
+            var category = await _categoryService.GetCategory(id);
 
             if (category == null)
                 return NotFound(new { message = $"Category with ID {id} was not found." });
@@ -36,9 +36,9 @@ namespace eRynok.Controllers
         }
 
         [HttpPost]
-        public IActionResult CreateCategory(CreateCategoryDto dto)
+        public async Task<IActionResult> CreateCategory(CreateCategoryDto dto)
         {
-            var result = _categoryService.CreateCategory(dto);
+            var result = await _categoryService.CreateCategory(dto);
 
             if (!result.IsSuccess)
                 return HandleFailure(result);
@@ -52,9 +52,9 @@ namespace eRynok.Controllers
         }
 
         [HttpPut("{id}")]
-        public IActionResult UpdateCategory(int id, UpdateCategoryDto dto)
+        public async Task<IActionResult> UpdateCategory(int id, UpdateCategoryDto dto)
         {
-            var result = _categoryService.UpdateCategory(id, dto);
+            var result = await _categoryService.UpdateCategory(id, dto);
 
             if (!result.IsSuccess)
                 return HandleFailure(result);
@@ -63,9 +63,9 @@ namespace eRynok.Controllers
         }
 
         [HttpDelete("{id}")]
-        public IActionResult DeleteCategory(int id)
+        public async Task<IActionResult> DeleteCategory(int id)
         {
-            var result = _categoryService.DeleteCategory(id);
+            var result = await _categoryService.DeleteCategory(id);
 
             if (!result.IsSuccess)
                 return HandleFailure(result);

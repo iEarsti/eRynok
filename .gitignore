@@ -1,5 +1,40 @@
-﻿.vs/
-**/bin/
-**/obj/
+﻿# Visual Studio
+.vs/
 *.user
 *.suo
+*.userosscache
+*.sln.docstates
+
+# Build results
+**/bin/
+**/obj/
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
+
+# Test results
+[Tt]est[Rr]esult*/
+[Bb]uild[Ll]og.*
+
+# Visual Studio cache
+*.cache
+*.pdb
+*.opendb
+*.VC.db
+
+# Publish
+publish/
+**/publish/
+
+# Logs
+*.log
+
+# Local secrets
+secrets.json
+.env
+.env.*
+
+# OS files
+.DS_Store
+Thumbs.db

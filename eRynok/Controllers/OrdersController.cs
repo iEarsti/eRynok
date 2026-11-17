@@ -18,30 +18,37 @@ namespace eRynok.Controllers
         }
 
         [HttpGet]
-        public IActionResult GetOrders(
+        public async Task<IActionResult> GetOrders(
             [FromQuery] int? buyerId,
             [FromQuery] int? sellerId,
             [FromQuery] OrderStatus? status)
         {
-            var orders = _orderService.GetOrders(buyerId, sellerId, status);
+            var orders = await _orderService.GetOrders(
+                buyerId,
+                sellerId,
+                status);
+
             return Ok(orders);
         }
 
         [HttpGet("{id}")]
-        public IActionResult GetOrder(int id)
+        public async Task<IActionResult> GetOrder(int id)
         {
-            var order = _orderService.GetOrder(id);
+            var order = await _orderService.GetOrder(id);
 
             if (order == null)
-                return NotFound(new { message = $"Order with ID {id} was not found." });
+                return NotFound(new
+                {
+                    message = $"Order with ID {id} was not found."
+                });
 
             return Ok(order);
         }
 
         [HttpPost]
-        public IActionResult CreateOrder(CreateOrderDto dto)
+        public async Task<IActionResult> CreateOrder(CreateOrderDto dto)
         {
-            var result = _orderService.CreateOrder(dto);
+            var result = await _orderService.CreateOrder(dto);
 
             if (!result.IsSuccess)
                 return HandleFailure(result);
@@ -55,11 +62,11 @@ namespace eRynok.Controllers
         }
 
         [HttpPut("{id}/status")]
-        public IActionResult UpdateOrderStatus(
+        public async Task<IActionResult> UpdateOrderStatus(
             int id,
             UpdateOrderStatusDto dto)
         {
-            var result = _orderService.UpdateOrderStatus(id, dto);
+            var result = await _orderService.UpdateOrderStatus(id, dto);
 
             if (!result.IsSuccess)
                 return HandleFailure(result);

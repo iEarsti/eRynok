@@ -2,45 +2,65 @@
 using eRynok.Models;
 using eRynok.DTOs.Users;
 using eRynok.Services.Interfaces;
+using Microsoft.EntityFrameworkCore;
 
 namespace eRynok.Services
 {
     public class UserService : IUserService
     {
-        public IEnumerable<UserResponseDto> GetUsers(
+        private readonly eRynokDbContext _context;
+
+        public UserService(eRynokDbContext context)
+        {
+            _context = context;
+        }
+
+        public async Task<IEnumerable<UserResponseDto>> GetUsers(
             string? search,
             UserRole? role)
         {
-            var users = eRynokData.Users.AsEnumerable();
+            var query = _context.Users
+                .Include(u => u.SellerProfile)
+                .Include(u => u.BuyerProfile)
+                .AsNoTracking();
 
             if (!string.IsNullOrWhiteSpace(search))
             {
-                users = users.Where(u =>
-                    u.Name.Contains(search, StringComparison.OrdinalIgnoreCase) ||
-                    u.Email.Contains(search, StringComparison.OrdinalIgnoreCase));
+                search = search.Trim();
+
+                query = query.Where(u =>
+                    u.Name.Contains(search) ||
+                    u.Email.Contains(search));
             }
 
             if (role.HasValue)
             {
-                users = users.Where(u => u.Role == role.Value);
+                query = query.Where(u => u.Role == role.Value);
             }
+
+            var users = await query.ToListAsync();
 
             return users.Select(MapToDto).ToList();
         }
 
-        public UserResponseDto? GetUser(int id)
+        public async Task<UserResponseDto?> GetUser(int id)
         {
-            var user = eRynokData.Users.FirstOrDefault(u => u.Id == id);
+            var user = await _context.Users
+                .Include(u => u.SellerProfile)
+                .Include(u => u.BuyerProfile)
+                .AsNoTracking()
+                .FirstOrDefaultAsync(u => u.Id == id);
 
             return user == null ? null : MapToDto(user);
         }
 
-        public ServiceResult<UserResponseDto> CreateUser(CreateUserDto dto)
+        public async Task<ServiceResult<UserResponseDto>> CreateUser(
+            CreateUserDto dto)
         {
             string email = dto.Email.Trim();
 
-            bool emailExists = eRynokData.Users.Any(u =>
-                u.Email.Equals(email, StringComparison.OrdinalIgnoreCase));
+            bool emailExists = await _context.Users
+                .AnyAsync(u => u.Email == email);
 
             if (emailExists)
             {
@@ -58,28 +78,45 @@ namespace eRynok.Services
 
             var user = new User
             {
-                Id = eRynokData.Users.Count > 0
-                    ? eRynokData.Users.Max(u => u.Id) + 1
-                    : 1,
-
                 Name = dto.Name.Trim(),
                 Email = email,
                 PasswordHash = string.Empty,
                 Role = dto.Role
             };
 
-            eRynokData.Users.Add(user);
+            if (dto.Role == UserRole.Seller)
+            {
+                user.SellerProfile = new SellerProfile
+                {
+                    Phone = dto.Phone!.Trim(),
+                    Address = dto.Address!.Trim()
+                };
+            }
+            else if (dto.Role == UserRole.Buyer)
+            {
+                user.BuyerProfile = new BuyerProfile
+                {
+                    Phone = dto.Phone!.Trim(),
+                    Address = dto.Address!.Trim()
+                };
+            }
 
-            SaveProfile(user.Id, dto.Role, dto.Phone, dto.Address);
+            _context.Users.Add(user);
 
-            eRynokData.SaveUsers();
+            await _context.SaveChangesAsync();
 
-            return ServiceResult<UserResponseDto>.Success(MapToDto(user));
+            return ServiceResult<UserResponseDto>.Success(
+                MapToDto(user));
         }
 
-        public ServiceResult<bool> UpdateUser(int id, UpdateUserDto dto)
+        public async Task<ServiceResult<bool>> UpdateUser(
+            int id,
+            UpdateUserDto dto)
         {
-            var user = eRynokData.Users.FirstOrDefault(u => u.Id == id);
+            var user = await _context.Users
+                .Include(u => u.SellerProfile)
+                .Include(u => u.BuyerProfile)
+                .FirstOrDefaultAsync(u => u.Id == id);
 
             if (user == null)
             {
@@ -90,9 +127,8 @@ namespace eRynok.Services
 
             string email = dto.Email.Trim();
 
-            bool emailExists = eRynokData.Users.Any(u =>
-                u.Id != id &&
-                u.Email.Equals(email, StringComparison.OrdinalIgnoreCase));
+            bool emailExists = await _context.Users
+                .AnyAsync(u => u.Id != id && u.Email == email);
 
             if (emailExists)
             {
@@ -108,7 +144,8 @@ namespace eRynok.Services
                     message);
             }
 
-            bool hasProducts = eRynokData.Products.Any(p => p.UserId == id);
+            bool hasProducts = await _context.Products
+                .AnyAsync(p => p.UserId == id);
 
             if (hasProducts && dto.Role != UserRole.Seller)
             {
@@ -119,19 +156,19 @@ namespace eRynok.Services
 
             user.Name = dto.Name.Trim();
             user.Email = email;
-
-            UpdateProfile(user.Id, dto.Role, dto.Phone, dto.Address);
-
             user.Role = dto.Role;
 
-            eRynokData.SaveUsers();
+            UpdateProfile(user, dto.Role, dto.Phone, dto.Address);
+
+            await _context.SaveChangesAsync();
 
             return ServiceResult<bool>.Success(true);
         }
 
-        public ServiceResult<bool> DeleteUser(int id)
+        public async Task<ServiceResult<bool>> DeleteUser(int id)
         {
-            var user = eRynokData.Users.FirstOrDefault(u => u.Id == id);
+            var user = await _context.Users
+                .FirstOrDefaultAsync(u => u.Id == id);
 
             if (user == null)
             {
@@ -140,7 +177,8 @@ namespace eRynok.Services
                     $"User with ID {id} was not found.");
             }
 
-            bool hasProducts = eRynokData.Products.Any(p => p.UserId == id);
+            bool hasProducts = await _context.Products
+                .AnyAsync(p => p.UserId == id);
 
             if (hasProducts)
             {
@@ -149,14 +187,19 @@ namespace eRynok.Services
                     "Cannot delete a user who owns products.");
             }
 
-            eRynokData.Users.Remove(user);
+            bool hasOrders = await _context.Orders
+                .AnyAsync(o => o.BuyerId == id);
 
-            eRynokData.SellerProfiles.RemoveAll(p => p.UserId == id);
-            eRynokData.BuyerProfiles.RemoveAll(p => p.UserId == id);
+            if (hasOrders)
+            {
+                return ServiceResult<bool>.Failure(
+                    ServiceError.Conflict,
+                    "Cannot delete a user who has placed orders.");
+            }
 
-            eRynokData.SaveUsers();
-            eRynokData.SaveSellerProfiles();
-            eRynokData.SaveBuyerProfiles();
+            _context.Users.Remove(user);
+
+            await _context.SaveChangesAsync();
 
             return ServiceResult<bool>.Success(true);
         }
@@ -187,45 +230,41 @@ namespace eRynok.Services
             return true;
         }
 
-        private static void SaveProfile(
-            int userId,
+        private static void UpdateProfile(
+            User user,
             UserRole role,
             string? phone,
             string? address)
         {
             if (role == UserRole.Seller)
             {
-                eRynokData.SellerProfiles.Add(new SellerProfile
+                user.BuyerProfile = null;
+
+                if (user.SellerProfile == null)
                 {
-                    UserId = userId,
-                    Phone = phone!.Trim(),
-                    Address = address!.Trim()
-                });
+                    user.SellerProfile = new SellerProfile();
+                }
+
+                user.SellerProfile.Phone = phone!.Trim();
+                user.SellerProfile.Address = address!.Trim();
             }
             else if (role == UserRole.Buyer)
             {
-                eRynokData.BuyerProfiles.Add(new BuyerProfile
+                user.SellerProfile = null;
+
+                if (user.BuyerProfile == null)
                 {
-                    UserId = userId,
-                    Phone = phone!.Trim(),
-                    Address = address!.Trim()
-                });
+                    user.BuyerProfile = new BuyerProfile();
+                }
+
+                user.BuyerProfile.Phone = phone!.Trim();
+                user.BuyerProfile.Address = address!.Trim();
             }
-
-            eRynokData.SaveSellerProfiles();
-            eRynokData.SaveBuyerProfiles();
-        }
-
-        private static void UpdateProfile(
-            int userId,
-            UserRole role,
-            string? phone,
-            string? address)
-        {
-            eRynokData.SellerProfiles.RemoveAll(p => p.UserId == userId);
-            eRynokData.BuyerProfiles.RemoveAll(p => p.UserId == userId);
-
-            SaveProfile(userId, role, phone, address);
+            else
+            {
+                user.SellerProfile = null;
+                user.BuyerProfile = null;
+            }
         }
 
         private static UserResponseDto MapToDto(User user)
@@ -235,19 +274,13 @@ namespace eRynok.Services
 
             if (user.Role == UserRole.Seller)
             {
-                var profile = eRynokData.SellerProfiles
-                    .FirstOrDefault(p => p.UserId == user.Id);
-
-                phone = profile?.Phone;
-                address = profile?.Address;
+                phone = user.SellerProfile?.Phone;
+                address = user.SellerProfile?.Address;
             }
             else if (user.Role == UserRole.Buyer)
             {
-                var profile = eRynokData.BuyerProfiles
-                    .FirstOrDefault(p => p.UserId == user.Id);
-
-                phone = profile?.Phone;
-                address = profile?.Address;
+                phone = user.BuyerProfile?.Phone;
+                address = user.BuyerProfile?.Address;
             }
 
             return new UserResponseDto

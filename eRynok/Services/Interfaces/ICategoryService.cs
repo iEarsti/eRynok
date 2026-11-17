@@ -3,17 +3,13 @@ namespace eRynok.Services.Interfaces
 {
     public interface ICategoryService
     {
-        IEnumerable<CategoryResponseDto> GetCategories(string? search);
-
-        CategoryResponseDto? GetCategory(int id);
-
-        ServiceResult<CategoryResponseDto> CreateCategory(
+        Task<IEnumerable<CategoryResponseDto>> GetCategories(string? search);
+        Task<CategoryResponseDto?> GetCategory(int id);
+        Task<ServiceResult<CategoryResponseDto>> CreateCategory(
             CreateCategoryDto dto);
-
-        ServiceResult<bool> UpdateCategory(
+        Task<ServiceResult<bool>> UpdateCategory(
             int id,
             UpdateCategoryDto dto);
-
-        ServiceResult<bool> DeleteCategory(int id);
+        Task<ServiceResult<bool>> DeleteCategory(int id);
     }
 }

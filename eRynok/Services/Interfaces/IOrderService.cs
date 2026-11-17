@@ -5,15 +5,18 @@ namespace eRynok.Services.Interfaces
 {
     public interface IOrderService
     {
-        IEnumerable<OrderResponseDto> GetOrders(
+        Task<IEnumerable<OrderResponseDto>> GetOrders(
             int? buyerId,
             int? sellerId,
             OrderStatus? status);
 
-        OrderResponseDto? GetOrder(int id);
+        Task<OrderResponseDto?> GetOrder(int id);
 
-        ServiceResult<OrderResponseDto> CreateOrder(CreateOrderDto dto);
+        Task<ServiceResult<OrderResponseDto>> CreateOrder(
+            CreateOrderDto dto);
 
-        ServiceResult<bool> UpdateOrderStatus(int id, UpdateOrderStatusDto dto);
+        Task<ServiceResult<bool>> UpdateOrderStatus(
+            int id,
+            UpdateOrderStatusDto dto);
     }
 }

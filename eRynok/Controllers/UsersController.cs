@@ -18,19 +18,19 @@ namespace eRynok.Controllers
         }
 
         [HttpGet]
-        public IActionResult GetUsers(
+        public async Task<IActionResult> GetUsers(
             [FromQuery] string? search,
             [FromQuery] UserRole? role)
         {
-            var users = _userService.GetUsers(search, role);
+            var users = await _userService.GetUsers(search, role);
 
             return Ok(users);
         }
 
         [HttpGet("{id}")]
-        public IActionResult GetUser(int id)
+        public async Task<IActionResult> GetUser(int id)
         {
-            var user = _userService.GetUser(id);
+            var user = await _userService.GetUser(id);
 
             if (user == null)
                 return NotFound(new { message = $"User with ID {id} was not found." });
@@ -39,9 +39,9 @@ namespace eRynok.Controllers
         }
 
         [HttpPost]
-        public IActionResult CreateUser(CreateUserDto dto)
+        public async Task<IActionResult> CreateUser(CreateUserDto dto)
         {
-            var result = _userService.CreateUser(dto);
+            var result = await _userService.CreateUser(dto);
 
             if (!result.IsSuccess)
                 return HandleFailure(result);
@@ -55,9 +55,9 @@ namespace eRynok.Controllers
         }
 
         [HttpPut("{id}")]
-        public IActionResult UpdateUser(int id, UpdateUserDto dto)
+        public async Task<IActionResult> UpdateUser(int id, UpdateUserDto dto)
         {
-            var result = _userService.UpdateUser(id, dto);
+            var result = await _userService.UpdateUser(id, dto);
 
             if (!result.IsSuccess)
                 return HandleFailure(result);
@@ -66,9 +66,9 @@ namespace eRynok.Controllers
         }
 
         [HttpDelete("{id}")]
-        public IActionResult DeleteUser(int id)
+        public async Task<IActionResult> DeleteUser(int id)
         {
-            var result = _userService.DeleteUser(id);
+            var result = await _userService.DeleteUser(id);
 
             if (!result.IsSuccess)
                 return HandleFailure(result);

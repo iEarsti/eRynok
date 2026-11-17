@@ -2,75 +2,94 @@
 using eRynok.Models;
 using eRynok.DTOs.Products;
 using eRynok.Services.Interfaces;
+using Microsoft.EntityFrameworkCore;
 
 namespace eRynok.Services
 {
     public class ProductService : IProductService
     {
-        public IEnumerable<ProductResponseDto> GetProducts(
+        private readonly eRynokDbContext _context;
+
+        public ProductService(eRynokDbContext context)
+        {
+            _context = context;
+        }
+
+        public async Task<IEnumerable<ProductResponseDto>> GetProducts(
             string? search,
             int? categoryId,
             int? userId,
             decimal? minPrice,
             decimal? maxPrice)
         {
-            var products = eRynokData.Products.AsEnumerable();
+            var query = _context.Products.AsNoTracking();
 
             if (!string.IsNullOrWhiteSpace(search))
             {
-                products = products.Where(p =>
-                    p.Name.Contains(search, StringComparison.OrdinalIgnoreCase) ||
-                    p.Description.Contains(search, StringComparison.OrdinalIgnoreCase));
+                search = search.Trim();
+
+                query = query.Where(p =>
+                    p.Name.Contains(search) ||
+                    p.Description.Contains(search));
             }
 
             if (categoryId.HasValue)
             {
-                products = products.Where(p =>
+                query = query.Where(p =>
                     p.CategoryId == categoryId.Value);
             }
 
             if (userId.HasValue)
             {
-                products = products.Where(p =>
+                query = query.Where(p =>
                     p.UserId == userId.Value);
             }
 
             if (minPrice.HasValue)
             {
-                products = products.Where(p =>
+                query = query.Where(p =>
                     p.Price >= minPrice.Value);
             }
 
             if (maxPrice.HasValue)
             {
-                products = products.Where(p =>
+                query = query.Where(p =>
                     p.Price <= maxPrice.Value);
             }
+
+            var products = await query.ToListAsync();
 
             return products.Select(MapToDto).ToList();
         }
 
-        public ProductResponseDto? GetProduct(int id)
+        public async Task<ProductResponseDto?> GetProduct(int id)
         {
-            var product = eRynokData.Products
-                .FirstOrDefault(p => p.Id == id);
+            var product = await _context.Products
+                .AsNoTracking()
+                .FirstOrDefaultAsync(p => p.Id == id);
 
             return product == null ? null : MapToDto(product);
         }
 
-        public ServiceResult<ProductResponseDto> CreateProduct(
+        public async Task<ServiceResult<ProductResponseDto>> CreateProduct(
             CreateProductDto dto)
         {
-            if (!eRynokData.Categories.Any(c =>
-                c.Id == dto.CategoryId))
+            bool categoryExists = await _context.Categories
+                .AnyAsync(c => c.Id == dto.CategoryId);
+
+            if (!categoryExists)
             {
                 return ServiceResult<ProductResponseDto>.Failure(
                     ServiceError.InvalidReference,
                     $"Category with ID {dto.CategoryId} does not exist.");
             }
 
-            if (!eRynokData.Users.Any(s =>
-                s.Id == dto.UserId))
+            bool sellerExists = await _context.Users
+                .AnyAsync(u =>
+                    u.Id == dto.UserId &&
+                    u.Role == UserRole.Seller);
+
+            if (!sellerExists)
             {
                 return ServiceResult<ProductResponseDto>.Failure(
                     ServiceError.InvalidReference,
@@ -79,10 +98,6 @@ namespace eRynok.Services
 
             var product = new Product
             {
-                Id = eRynokData.Products.Count > 0
-                    ? eRynokData.Products.Max(p => p.Id) + 1
-                    : 1,
-
                 Name = dto.Name.Trim(),
                 Description = dto.Description.Trim(),
                 Price = dto.Price,
@@ -92,19 +107,20 @@ namespace eRynok.Services
                 CreatedAt = DateTime.UtcNow
             };
 
-            eRynokData.Products.Add(product);
-            eRynokData.SaveProducts();
+            _context.Products.Add(product);
+
+            await _context.SaveChangesAsync();
 
             return ServiceResult<ProductResponseDto>.Success(
                 MapToDto(product));
         }
 
-        public ServiceResult<bool> UpdateProduct(
+        public async Task<ServiceResult<bool>> UpdateProduct(
             int id,
             UpdateProductDto dto)
         {
-            var product = eRynokData.Products
-                .FirstOrDefault(p => p.Id == id);
+            var product = await _context.Products
+                .FirstOrDefaultAsync(p => p.Id == id);
 
             if (product == null)
             {
@@ -113,16 +129,22 @@ namespace eRynok.Services
                     $"Product with ID {id} was not found.");
             }
 
-            if (!eRynokData.Categories.Any(c =>
-                c.Id == dto.CategoryId))
+            bool categoryExists = await _context.Categories
+                .AnyAsync(c => c.Id == dto.CategoryId);
+
+            if (!categoryExists)
             {
                 return ServiceResult<bool>.Failure(
                     ServiceError.InvalidReference,
                     $"Category with ID {dto.CategoryId} does not exist.");
             }
 
-            if (!eRynokData.Users.Any(s =>
-                s.Id == dto.UserId))
+            bool sellerExists = await _context.Users
+                .AnyAsync(u =>
+                    u.Id == dto.UserId &&
+                    u.Role == UserRole.Seller);
+
+            if (!sellerExists)
             {
                 return ServiceResult<bool>.Failure(
                     ServiceError.InvalidReference,
@@ -136,15 +158,15 @@ namespace eRynok.Services
             product.CategoryId = dto.CategoryId;
             product.UserId = dto.UserId;
 
-            eRynokData.SaveProducts();
+            await _context.SaveChangesAsync();
 
             return ServiceResult<bool>.Success(true);
         }
 
-        public ServiceResult<bool> DeleteProduct(int id)
+        public async Task<ServiceResult<bool>> DeleteProduct(int id)
         {
-            var product = eRynokData.Products
-                .FirstOrDefault(p => p.Id == id);
+            var product = await _context.Products
+                .FirstOrDefaultAsync(p => p.Id == id);
 
             if (product == null)
             {
@@ -153,8 +175,19 @@ namespace eRynok.Services
                     $"Product with ID {id} was not found.");
             }
 
-            eRynokData.Products.Remove(product);
-            eRynokData.SaveProducts();
+            bool hasOrders = await _context.Orders
+                .AnyAsync(o => o.ProductId == id);
+
+            if (hasOrders)
+            {
+                return ServiceResult<bool>.Failure(
+                    ServiceError.Conflict,
+                    "Cannot delete product because it has existing orders.");
+            }
+
+            _context.Products.Remove(product);
+
+            await _context.SaveChangesAsync();
 
             return ServiceResult<bool>.Success(true);
         }

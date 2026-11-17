@@ -17,14 +17,14 @@ namespace eRynok.Controllers
         }
 
         [HttpGet]
-        public IActionResult GetProducts(
+        public async Task<IActionResult> GetProducts(
             [FromQuery] string? search,
             [FromQuery] int? categoryId,
             [FromQuery] int? userId,
             [FromQuery] decimal? minPrice,
             [FromQuery] decimal? maxPrice)
         {
-            var products = _productService.GetProducts(
+            var products = await _productService.GetProducts(
                 search,
                 categoryId,
                 userId,
@@ -35,9 +35,9 @@ namespace eRynok.Controllers
         }
 
         [HttpGet("{id}")]
-        public IActionResult GetProduct(int id)
+        public async Task<IActionResult> GetProduct(int id)
         {
-            var product = _productService.GetProduct(id);
+            var product = await _productService.GetProduct(id);
 
             if (product == null)
                 return NotFound(new { message = $"Product with ID {id} was not found." });
@@ -46,9 +46,9 @@ namespace eRynok.Controllers
         }
 
         [HttpPost]
-        public IActionResult CreateProduct(CreateProductDto dto)
+        public async Task<IActionResult> CreateProduct(CreateProductDto dto)
         {
-            var result = _productService.CreateProduct(dto);
+            var result = await _productService.CreateProduct(dto);
 
             if (!result.IsSuccess)
                 return HandleFailure(result);
@@ -62,9 +62,9 @@ namespace eRynok.Controllers
         }
 
         [HttpPut("{id}")]
-        public IActionResult UpdateProduct(int id, UpdateProductDto dto)
+        public async Task<IActionResult> UpdateProduct(int id, UpdateProductDto dto)
         {
-            var result = _productService.UpdateProduct(id, dto);
+            var result = await _productService.UpdateProduct(id, dto);
 
             if (!result.IsSuccess)
                 return HandleFailure(result);
@@ -73,9 +73,9 @@ namespace eRynok.Controllers
         }
 
         [HttpDelete("{id}")]
-        public IActionResult DeleteProduct(int id)
+        public async Task<IActionResult> DeleteProduct(int id)
         {
-            var result = _productService.DeleteProduct(id);
+            var result = await _productService.DeleteProduct(id);
 
             if (!result.IsSuccess)
                 return HandleFailure(result);
