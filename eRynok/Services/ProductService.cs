@@ -1,18 +1,17 @@
-﻿using eRynok.Data;
-using eRynok.Models;
+﻿using eRynok.Models;
 using eRynok.DTOs.Products;
 using eRynok.Services.Interfaces;
-using Microsoft.EntityFrameworkCore;
+using eRynok.Repositories.Interfaces;
 
 namespace eRynok.Services
 {
     public class ProductService : IProductService
     {
-        private readonly eRynokDbContext _context;
+        private readonly IProductRepository _productRepository;
 
-        public ProductService(eRynokDbContext context)
+        public ProductService(IProductRepository productRepository)
         {
-            _context = context;
+            _productRepository = productRepository;
         }
 
         public async Task<IEnumerable<ProductResponseDto>> GetProducts(
@@ -22,51 +21,21 @@ namespace eRynok.Services
             decimal? minPrice,
             decimal? maxPrice)
         {
-            var query = _context.Products.AsNoTracking();
+            search = search?.Trim();
 
-            if (!string.IsNullOrWhiteSpace(search))
-            {
-                search = search.Trim();
-
-                query = query.Where(p =>
-                    p.Name.Contains(search) ||
-                    p.Description.Contains(search));
-            }
-
-            if (categoryId.HasValue)
-            {
-                query = query.Where(p =>
-                    p.CategoryId == categoryId.Value);
-            }
-
-            if (userId.HasValue)
-            {
-                query = query.Where(p =>
-                    p.UserId == userId.Value);
-            }
-
-            if (minPrice.HasValue)
-            {
-                query = query.Where(p =>
-                    p.Price >= minPrice.Value);
-            }
-
-            if (maxPrice.HasValue)
-            {
-                query = query.Where(p =>
-                    p.Price <= maxPrice.Value);
-            }
-
-            var products = await query.ToListAsync();
+            var products = await _productRepository.GetProducts(
+                search,
+                categoryId,
+                userId,
+                minPrice,
+                maxPrice);
 
             return products.Select(MapToDto).ToList();
         }
 
         public async Task<ProductResponseDto?> GetProduct(int id)
         {
-            var product = await _context.Products
-                .AsNoTracking()
-                .FirstOrDefaultAsync(p => p.Id == id);
+            var product = await _productRepository.GetProduct(id);
 
             return product == null ? null : MapToDto(product);
         }
@@ -74,8 +43,8 @@ namespace eRynok.Services
         public async Task<ServiceResult<ProductResponseDto>> CreateProduct(
             CreateProductDto dto)
         {
-            bool categoryExists = await _context.Categories
-                .AnyAsync(c => c.Id == dto.CategoryId);
+            bool categoryExists = await _productRepository.CategoryExists(
+                dto.CategoryId);
 
             if (!categoryExists)
             {
@@ -84,10 +53,8 @@ namespace eRynok.Services
                     $"Category with ID {dto.CategoryId} does not exist.");
             }
 
-            bool sellerExists = await _context.Users
-                .AnyAsync(u =>
-                    u.Id == dto.UserId &&
-                    u.Role == UserRole.Seller);
+            bool sellerExists = await _productRepository.SellerExists(
+                dto.UserId);
 
             if (!sellerExists)
             {
@@ -107,9 +74,7 @@ namespace eRynok.Services
                 CreatedAt = DateTime.UtcNow
             };
 
-            _context.Products.Add(product);
-
-            await _context.SaveChangesAsync();
+            await _productRepository.AddProduct(product);
 
             return ServiceResult<ProductResponseDto>.Success(
                 MapToDto(product));
@@ -119,8 +84,7 @@ namespace eRynok.Services
             int id,
             UpdateProductDto dto)
         {
-            var product = await _context.Products
-                .FirstOrDefaultAsync(p => p.Id == id);
+            var product = await _productRepository.GetProduct(id);
 
             if (product == null)
             {
@@ -129,8 +93,8 @@ namespace eRynok.Services
                     $"Product with ID {id} was not found.");
             }
 
-            bool categoryExists = await _context.Categories
-                .AnyAsync(c => c.Id == dto.CategoryId);
+            bool categoryExists = await _productRepository.CategoryExists(
+                dto.CategoryId);
 
             if (!categoryExists)
             {
@@ -139,10 +103,8 @@ namespace eRynok.Services
                     $"Category with ID {dto.CategoryId} does not exist.");
             }
 
-            bool sellerExists = await _context.Users
-                .AnyAsync(u =>
-                    u.Id == dto.UserId &&
-                    u.Role == UserRole.Seller);
+            bool sellerExists = await _productRepository.SellerExists(
+                dto.UserId);
 
             if (!sellerExists)
             {
@@ -158,15 +120,14 @@ namespace eRynok.Services
             product.CategoryId = dto.CategoryId;
             product.UserId = dto.UserId;
 
-            await _context.SaveChangesAsync();
+            await _productRepository.UpdateProduct(product);
 
             return ServiceResult<bool>.Success(true);
         }
 
         public async Task<ServiceResult<bool>> DeleteProduct(int id)
         {
-            var product = await _context.Products
-                .FirstOrDefaultAsync(p => p.Id == id);
+            var product = await _productRepository.GetProduct(id);
 
             if (product == null)
             {
@@ -175,8 +136,7 @@ namespace eRynok.Services
                     $"Product with ID {id} was not found.");
             }
 
-            bool hasOrders = await _context.Orders
-                .AnyAsync(o => o.ProductId == id);
+            bool hasOrders = await _productRepository.HasOrders(id);
 
             if (hasOrders)
             {
@@ -185,9 +145,7 @@ namespace eRynok.Services
                     "Cannot delete product because it has existing orders.");
             }
 
-            _context.Products.Remove(product);
-
-            await _context.SaveChangesAsync();
+            await _productRepository.DeleteProduct(product);
 
             return ServiceResult<bool>.Success(true);
         }

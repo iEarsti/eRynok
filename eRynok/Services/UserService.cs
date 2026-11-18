@@ -1,294 +1,364 @@
-﻿using eRynok.Data;
-using eRynok.Models;
+﻿using eRynok.Models;
 using eRynok.DTOs.Users;
 using eRynok.Services.Interfaces;
-using Microsoft.EntityFrameworkCore;
+using eRynok.Repositories.Interfaces;
+using Microsoft.AspNetCore.Identity;
 
 namespace eRynok.Services
 {
     public class UserService : IUserService
     {
-        private readonly eRynokDbContext _context;
+        private readonly IUserRepository _userRepository;
+        private readonly UserManager<ApplicationUser> _userManager;
 
-        public UserService(eRynokDbContext context)
+        public UserService(
+            IUserRepository userRepository,
+            UserManager<ApplicationUser> userManager)
         {
-            _context = context;
+            _userRepository = userRepository;
+            _userManager = userManager;
         }
 
         public async Task<IEnumerable<UserResponseDto>> GetUsers(
             string? search,
             UserRole? role)
         {
-            var query = _context.Users
-                .Include(u => u.SellerProfile)
-                .Include(u => u.BuyerProfile)
-                .AsNoTracking();
+            var users = await _userRepository.GetUsers(
+                search?.Trim(),
+                role?.ToString());
 
-            if (!string.IsNullOrWhiteSpace(search))
+            var result = new List<UserResponseDto>();
+
+            foreach (var user in users)
             {
-                search = search.Trim();
-
-                query = query.Where(u =>
-                    u.Name.Contains(search) ||
-                    u.Email.Contains(search));
+                result.Add(await MapToDto(user));
             }
 
-            if (role.HasValue)
-            {
-                query = query.Where(u => u.Role == role.Value);
-            }
-
-            var users = await query.ToListAsync();
-
-            return users.Select(MapToDto).ToList();
+            return result;
         }
 
         public async Task<UserResponseDto?> GetUser(int id)
         {
-            var user = await _context.Users
-                .Include(u => u.SellerProfile)
-                .Include(u => u.BuyerProfile)
-                .AsNoTracking()
-                .FirstOrDefaultAsync(u => u.Id == id);
+            var user = await _userRepository.GetUser(id);
 
-            return user == null ? null : MapToDto(user);
+            if (user == null)
+            {
+                return null;
+            }
+
+            return await MapToDto(user);
         }
 
         public async Task<ServiceResult<UserResponseDto>> CreateUser(
             CreateUserDto dto)
         {
-            string email = dto.Email.Trim();
+            var email = dto.Email.Trim();
 
-            bool emailExists = await _context.Users
-                .AnyAsync(u => u.Email == email);
+            var existingUser = await _userManager.FindByEmailAsync(email);
 
-            if (emailExists)
+            if (existingUser != null)
             {
                 return ServiceResult<UserResponseDto>.Failure(
                     ServiceError.Conflict,
                     "A user with this email already exists.");
             }
 
-            if (!ValidateProfile(dto.Role, dto.Phone, dto.Address, out string message))
+            var validationError = ValidateProfile(
+                dto.Role,
+                dto.Phone,
+                dto.Address);
+
+            if (validationError != null)
             {
                 return ServiceResult<UserResponseDto>.Failure(
                     ServiceError.InvalidReference,
-                    message);
+                    validationError);
             }
 
-            var user = new User
+            var user = new ApplicationUser
             {
                 Name = dto.Name.Trim(),
-                Email = email,
-                PasswordHash = string.Empty,
-                Role = dto.Role
+                UserName = email,
+                Email = email
             };
 
-            if (dto.Role == UserRole.Seller)
+            UpdateProfile(
+                user,
+                dto.Role,
+                dto.Phone,
+                dto.Address);
+
+            var createResult = await _userManager.CreateAsync(
+                user,
+                dto.Password);
+
+            if (!createResult.Succeeded)
             {
-                user.SellerProfile = new SellerProfile
-                {
-                    Phone = dto.Phone!.Trim(),
-                    Address = dto.Address!.Trim()
-                };
-            }
-            else if (dto.Role == UserRole.Buyer)
-            {
-                user.BuyerProfile = new BuyerProfile
-                {
-                    Phone = dto.Phone!.Trim(),
-                    Address = dto.Address!.Trim()
-                };
+                var errors = string.Join(
+                    " ",
+                    createResult.Errors.Select(error => error.Description));
+
+                return ServiceResult<UserResponseDto>.Failure(
+                    ServiceError.Conflict,
+                    errors);
             }
 
-            _context.Users.Add(user);
+            var roleResult = await _userManager.AddToRoleAsync(
+                user,
+                dto.Role.ToString());
 
-            await _context.SaveChangesAsync();
+            if (!roleResult.Succeeded)
+            {
+                await _userManager.DeleteAsync(user);
+
+                var errors = string.Join(
+                    " ",
+                    roleResult.Errors.Select(error => error.Description));
+
+                return ServiceResult<UserResponseDto>.Failure(
+                    ServiceError.Conflict,
+                    errors);
+            }
 
             return ServiceResult<UserResponseDto>.Success(
-                MapToDto(user));
+                await MapToDto(user));
         }
 
         public async Task<ServiceResult<bool>> UpdateUser(
             int id,
             UpdateUserDto dto)
         {
-            var user = await _context.Users
-                .Include(u => u.SellerProfile)
-                .Include(u => u.BuyerProfile)
-                .FirstOrDefaultAsync(u => u.Id == id);
+            var user = await _userRepository.GetUser(id);
 
             if (user == null)
             {
                 return ServiceResult<bool>.Failure(
                     ServiceError.NotFound,
-                    $"User with ID {id} was not found.");
+                    "User not found.");
             }
 
-            string email = dto.Email.Trim();
+            var email = dto.Email.Trim();
 
-            bool emailExists = await _context.Users
-                .AnyAsync(u => u.Id != id && u.Email == email);
+            var existingUser = await _userManager.FindByEmailAsync(email);
 
-            if (emailExists)
+            if (existingUser != null && existingUser.Id != id)
             {
                 return ServiceResult<bool>.Failure(
                     ServiceError.Conflict,
                     "Another user with this email already exists.");
             }
 
-            if (!ValidateProfile(dto.Role, dto.Phone, dto.Address, out string message))
-            {
-                return ServiceResult<bool>.Failure(
-                    ServiceError.InvalidReference,
-                    message);
-            }
+            var currentRoles = await _userManager.GetRolesAsync(user);
 
-            bool hasProducts = await _context.Products
-                .AnyAsync(p => p.UserId == id);
+            var currentRole = currentRoles.FirstOrDefault();
 
-            if (hasProducts && dto.Role != UserRole.Seller)
+            if (string.Equals(currentRole, UserRole.Seller.ToString(), StringComparison.OrdinalIgnoreCase)
+                && dto.Role != UserRole.Seller
+                && await _userRepository.HasProducts(id))
             {
                 return ServiceResult<bool>.Failure(
                     ServiceError.Conflict,
                     "Cannot change the role of a seller who has products.");
             }
 
+            var validationError = ValidateProfile(
+                dto.Role,
+                dto.Phone,
+                dto.Address);
+
+            if (validationError != null)
+            {
+                return ServiceResult<bool>.Failure(
+                    ServiceError.InvalidReference,
+                    validationError);
+            }
+
             user.Name = dto.Name.Trim();
             user.Email = email;
-            user.Role = dto.Role;
+            user.UserName = email;
 
-            UpdateProfile(user, dto.Role, dto.Phone, dto.Address);
+            UpdateProfile(
+                user,
+                dto.Role,
+                dto.Phone,
+                dto.Address);
 
-            await _context.SaveChangesAsync();
+            var updateResult = await _userManager.UpdateAsync(user);
+
+            if (!updateResult.Succeeded)
+            {
+                var errors = string.Join(
+                    " ",
+                    updateResult.Errors.Select(error => error.Description));
+
+                return ServiceResult<bool>.Failure(
+                    ServiceError.Conflict,
+                    errors);
+            }
+
+            if (!string.Equals(currentRole, dto.Role.ToString(), StringComparison.OrdinalIgnoreCase))
+            {
+                if (currentRoles.Any())
+                {
+                    var removeResult = await _userManager.RemoveFromRolesAsync(
+                        user,
+                        currentRoles);
+
+                    if (!removeResult.Succeeded)
+                    {
+                        return ServiceResult<bool>.Failure(
+                            ServiceError.Conflict,
+                            "Failed to update user roles.");
+                    }
+                }
+
+                var addResult = await _userManager.AddToRoleAsync(
+                    user,
+                    dto.Role.ToString());
+
+                if (!addResult.Succeeded)
+                {
+                    return ServiceResult<bool>.Failure(
+                        ServiceError.Conflict,
+                        "Failed to update user roles.");
+                }
+            }
 
             return ServiceResult<bool>.Success(true);
         }
 
         public async Task<ServiceResult<bool>> DeleteUser(int id)
         {
-            var user = await _context.Users
-                .FirstOrDefaultAsync(u => u.Id == id);
+            var user = await _userRepository.GetUser(id);
 
             if (user == null)
             {
                 return ServiceResult<bool>.Failure(
                     ServiceError.NotFound,
-                    $"User with ID {id} was not found.");
+                    "User not found.");
             }
 
-            bool hasProducts = await _context.Products
-                .AnyAsync(p => p.UserId == id);
-
-            if (hasProducts)
+            if (await _userRepository.HasProducts(id))
             {
                 return ServiceResult<bool>.Failure(
                     ServiceError.Conflict,
                     "Cannot delete a user who owns products.");
             }
 
-            bool hasOrders = await _context.Orders
-                .AnyAsync(o => o.BuyerId == id);
-
-            if (hasOrders)
+            if (await _userRepository.HasOrders(id))
             {
                 return ServiceResult<bool>.Failure(
                     ServiceError.Conflict,
                     "Cannot delete a user who has placed orders.");
             }
 
-            _context.Users.Remove(user);
+            var deleteResult = await _userManager.DeleteAsync(user);
 
-            await _context.SaveChangesAsync();
+            if (!deleteResult.Succeeded)
+            {
+                var errors = string.Join(
+                    " ",
+                    deleteResult.Errors.Select(error => error.Description));
+
+                return ServiceResult<bool>.Failure(
+                    ServiceError.Conflict,
+                    errors);
+            }
 
             return ServiceResult<bool>.Success(true);
         }
 
-        private static bool ValidateProfile(
-            UserRole role,
-            string? phone,
-            string? address,
-            out string message)
-        {
-            message = string.Empty;
-
-            if (role == UserRole.Admin)
-                return true;
-
-            if (string.IsNullOrWhiteSpace(phone))
-            {
-                message = "Phone is required for sellers and buyers.";
-                return false;
-            }
-
-            if (string.IsNullOrWhiteSpace(address))
-            {
-                message = "Address is required for sellers and buyers.";
-                return false;
-            }
-
-            return true;
-        }
-
-        private static void UpdateProfile(
-            User user,
+        private string? ValidateProfile(
             UserRole role,
             string? phone,
             string? address)
         {
-            if (role == UserRole.Seller)
+            if (role == UserRole.Admin)
             {
-                user.BuyerProfile = null;
-
-                if (user.SellerProfile == null)
-                {
-                    user.SellerProfile = new SellerProfile();
-                }
-
-                user.SellerProfile.Phone = phone!.Trim();
-                user.SellerProfile.Address = address!.Trim();
+                return null;
             }
-            else if (role == UserRole.Buyer)
+
+            if (string.IsNullOrWhiteSpace(phone))
             {
-                user.SellerProfile = null;
-
-                if (user.BuyerProfile == null)
-                {
-                    user.BuyerProfile = new BuyerProfile();
-                }
-
-                user.BuyerProfile.Phone = phone!.Trim();
-                user.BuyerProfile.Address = address!.Trim();
+                return "Phone is required for sellers and buyers.";
             }
-            else
+
+            if (string.IsNullOrWhiteSpace(address))
             {
-                user.SellerProfile = null;
-                user.BuyerProfile = null;
+                return "Address is required for sellers and buyers.";
+            }
+
+            return null;
+        }
+
+        private void UpdateProfile(
+            ApplicationUser user,
+            UserRole role,
+            string? phone,
+            string? address)
+        {
+            switch (role)
+            {
+                case UserRole.Seller:
+                    user.BuyerProfile = null;
+
+                    user.SellerProfile ??= new SellerProfile();
+
+                    user.SellerProfile.Phone = phone!.Trim();
+                    user.SellerProfile.Address = address!.Trim();
+
+                    break;
+
+                case UserRole.Buyer:
+                    user.SellerProfile = null;
+
+                    user.BuyerProfile ??= new BuyerProfile();
+
+                    user.BuyerProfile.Phone = phone!.Trim();
+                    user.BuyerProfile.Address = address!.Trim();
+
+                    break;
+
+                case UserRole.Admin:
+                    user.SellerProfile = null;
+                    user.BuyerProfile = null;
+
+                    break;
             }
         }
 
-        private static UserResponseDto MapToDto(User user)
+        private async Task<UserResponseDto> MapToDto(
+            ApplicationUser user)
         {
+            var roles = await _userManager.GetRolesAsync(user);
+
+            Enum.TryParse<UserRole>(
+            roles.FirstOrDefault(),
+            true,
+            out var role);
+
             string? phone = null;
             string? address = null;
 
-            if (user.Role == UserRole.Seller)
+            switch (role)
             {
-                phone = user.SellerProfile?.Phone;
-                address = user.SellerProfile?.Address;
-            }
-            else if (user.Role == UserRole.Buyer)
-            {
-                phone = user.BuyerProfile?.Phone;
-                address = user.BuyerProfile?.Address;
+                case UserRole.Seller:
+                    phone = user.SellerProfile?.Phone;
+                    address = user.SellerProfile?.Address;
+                    break;
+
+                case UserRole.Buyer:
+                    phone = user.BuyerProfile?.Phone;
+                    address = user.BuyerProfile?.Address;
+                    break;
             }
 
             return new UserResponseDto
             {
                 Id = user.Id,
                 Name = user.Name,
-                Email = user.Email,
-                Role = user.Role,
+                Email = user.Email ?? string.Empty,
+                Role = role,
                 Phone = phone,
                 Address = address
             };

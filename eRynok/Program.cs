@@ -2,7 +2,11 @@ using eRynok.Data;
 using eRynok.Services.Interfaces;
 using eRynok.Services;
 using eRynok.Middleware;
+using eRynok.Repositories;
+using eRynok.Repositories.Interfaces;
 using Microsoft.EntityFrameworkCore;
+using eRynok.Models;
+using Microsoft.AspNetCore.Identity;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -25,14 +29,26 @@ builder.Services.AddSwaggerGen(options =>
 
     options.IncludeXmlComments(xmlPath);
 });
+
 builder.Services.AddDbContext<eRynokDbContext>(options => options.UseSqlServer(
         builder.Configuration.GetConnectionString("DefaultConnection")));
-builder.Services.AddScoped<IProductService, ProductService>();
+
+builder.Services.AddDataProtection();
+
+builder.Services
+    .AddIdentityCore<ApplicationUser>()
+    .AddRoles<IdentityRole<int>>()
+    .AddEntityFrameworkStores<eRynokDbContext>()
+    .AddDefaultTokenProviders();
+
 builder.Services.AddScoped<IProductService, ProductService>();
 builder.Services.AddScoped<ICategoryService, CategoryService>();
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IOrderService, OrderService>();
-eRynokData.Initialize(builder.Environment.ContentRootPath);
+builder.Services.AddScoped<IProductRepository, ProductRepository>();
+builder.Services.AddScoped<IUserRepository, UserRepository>();
+builder.Services.AddScoped<IOrderRepository, OrderRepository>();
+builder.Services.AddScoped<ICategoryRepository, CategoryRepository>();
 
 builder.Services.AddCors(options =>
 {
@@ -45,6 +61,11 @@ builder.Services.AddCors(options =>
 });
 
 var app = builder.Build();
+
+using (var scope = app.Services.CreateScope())
+{
+    await RoleSeeder.SeedRoles(scope.ServiceProvider);
+}
 
 app.UseMiddleware<ExceptionMiddleware>();
 

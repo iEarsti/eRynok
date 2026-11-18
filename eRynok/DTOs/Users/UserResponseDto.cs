@@ -23,12 +23,13 @@ namespace eRynok.DTOs.Users
         public string Email { get; set; } = string.Empty;
 
         /// <summary>
-        /// Роль користувача: 0 - Seller, 1 - Buyer, 2 -Admin.
+        /// Роль користувача в системі.
+        /// 0 - Seller, 1 - Buyer, 2 - Admin.
         /// </summary>
         public UserRole Role { get; set; }
 
         /// <summary>
-        /// Контактний номер телефону користувача.
+        /// Номер телефону користувача.
         /// </summary>
         public string? Phone { get; set; }
 

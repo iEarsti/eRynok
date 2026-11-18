@@ -1,16 +1,18 @@
 ﻿using eRynok.Models;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 
 namespace eRynok.Data
 {
-    public class eRynokDbContext : DbContext
+    public class eRynokDbContext
+        : IdentityDbContext<ApplicationUser, IdentityRole<int>, int>
     {
-        public eRynokDbContext(DbContextOptions<eRynokDbContext> options)
+        public eRynokDbContext(
+            DbContextOptions<eRynokDbContext> options)
             : base(options)
         {
         }
-
-        public DbSet<User> Users { get; set; }
 
         public DbSet<SellerProfile> SellerProfiles { get; set; }
 
@@ -26,9 +28,11 @@ namespace eRynok.Data
         {
             base.OnModelCreating(modelBuilder);
 
-            // User configuration
-            modelBuilder.Entity<User>(entity =>
+            // ApplicationUser configuration
+            modelBuilder.Entity<ApplicationUser>(entity =>
             {
+                entity.ToTable("Users");
+
                 entity.HasKey(u => u.Id);
 
                 entity.Property(u => u.Name)
@@ -41,9 +45,6 @@ namespace eRynok.Data
 
                 entity.HasIndex(u => u.Email)
                     .IsUnique();
-
-                entity.Property(u => u.Role)
-                    .IsRequired();
 
                 entity.HasOne(u => u.SellerProfile)
                     .WithOne(p => p.User)

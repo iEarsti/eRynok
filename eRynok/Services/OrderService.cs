@@ -1,18 +1,21 @@
-﻿using eRynok.Data;
-using eRynok.DTOs.Orders;
+﻿using eRynok.DTOs.Orders;
 using eRynok.Models;
+using eRynok.Repositories.Interfaces;
 using eRynok.Services.Interfaces;
-using Microsoft.EntityFrameworkCore;
 
 namespace eRynok.Services
 {
     public class OrderService : IOrderService
     {
-        private readonly eRynokDbContext _context;
+        private readonly IOrderRepository _orderRepository;
+        private readonly IProductRepository _productRepository;
 
-        public OrderService(eRynokDbContext context)
+        public OrderService(
+            IOrderRepository orderRepository,
+            IProductRepository productRepository)
         {
-            _context = context;
+            _orderRepository = orderRepository;
+            _productRepository = productRepository;
         }
 
         public async Task<IEnumerable<OrderResponseDto>> GetOrders(
@@ -20,37 +23,17 @@ namespace eRynok.Services
             int? sellerId,
             OrderStatus? status)
         {
-            var query = _context.Orders
-                .AsNoTracking()
-                .Include(o => o.Product)
-                .AsQueryable();
-
-            if (buyerId.HasValue)
-            {
-                query = query.Where(o => o.BuyerId == buyerId.Value);
-            }
-
-            if (sellerId.HasValue)
-            {
-                query = query.Where(o => o.Product.UserId == sellerId.Value);
-            }
-
-            if (status.HasValue)
-            {
-                query = query.Where(o => o.Status == status.Value);
-            }
-
-            var orders = await query.ToListAsync();
+            var orders = await _orderRepository.GetOrders(
+                buyerId,
+                sellerId,
+                status);
 
             return orders.Select(MapToDto).ToList();
         }
 
         public async Task<OrderResponseDto?> GetOrder(int id)
         {
-            var order = await _context.Orders
-                .AsNoTracking()
-                .Include(o => o.Product)
-                .FirstOrDefaultAsync(o => o.Id == id);
+            var order = await _orderRepository.GetOrder(id);
 
             return order == null ? null : MapToDto(order);
         }
@@ -58,20 +41,17 @@ namespace eRynok.Services
         public async Task<ServiceResult<OrderResponseDto>> CreateOrder(
             CreateOrderDto dto)
         {
-            var buyer = await _context.Users
-                .FirstOrDefaultAsync(u =>
-                    u.Id == dto.BuyerId &&
-                    u.Role == UserRole.Buyer);
+            bool buyerExists = await _orderRepository.BuyerExists(
+                dto.BuyerId);
 
-            if (buyer == null)
+            if (!buyerExists)
             {
                 return ServiceResult<OrderResponseDto>.Failure(
                     ServiceError.InvalidReference,
                     "The specified buyer does not exist.");
             }
 
-            var product = await _context.Products
-                .FirstOrDefaultAsync(p => p.Id == dto.ProductId);
+            var product = await _productRepository.GetProduct(dto.ProductId);
 
             if (product == null)
             {
@@ -94,15 +74,11 @@ namespace eRynok.Services
                 Quantity = dto.Quantity,
                 UnitPrice = product.Price,
                 Status = OrderStatus.Pending,
-                CreatedAt = DateTime.UtcNow
+                CreatedAt = DateTime.UtcNow,
+                Product = product
             };
 
-            _context.Orders.Add(order);
-
-            await _context.SaveChangesAsync();
-
-            // Product is already available, so we can map the result directly.
-            order.Product = product;
+            await _orderRepository.AddOrder(order);
 
             return ServiceResult<OrderResponseDto>.Success(
                 MapToDto(order));
@@ -112,8 +88,7 @@ namespace eRynok.Services
             int id,
             UpdateOrderStatusDto dto)
         {
-            var order = await _context.Orders
-                .FirstOrDefaultAsync(o => o.Id == id);
+            var order = await _orderRepository.GetOrder(id);
 
             if (order == null)
             {
@@ -131,7 +106,30 @@ namespace eRynok.Services
 
             order.Status = dto.Status;
 
-            await _context.SaveChangesAsync();
+            await _orderRepository.UpdateOrder(order);
+
+            return ServiceResult<bool>.Success(true);
+        }
+
+        public async Task<ServiceResult<bool>> DeleteOrder(int id)
+        {
+            var order = await _orderRepository.GetOrder(id);
+
+            if (order == null)
+            {
+                return ServiceResult<bool>.Failure(
+                    ServiceError.NotFound,
+                    $"Order with ID {id} was not found.");
+            }
+
+            if (order.Status != OrderStatus.Pending)
+            {
+                return ServiceResult<bool>.Failure(
+                    ServiceError.Conflict,
+                    "Only pending orders can be deleted.");
+            }
+
+            await _orderRepository.DeleteOrder(order);
 
             return ServiceResult<bool>.Success(true);
         }
@@ -150,32 +148,6 @@ namespace eRynok.Services
                 Status = order.Status,
                 CreatedAt = order.CreatedAt
             };
-        }
-
-        public async Task<ServiceResult<bool>> DeleteOrder(int id)
-        {
-            var order = await _context.Orders
-                .FirstOrDefaultAsync(o => o.Id == id);
-
-            if (order == null)
-            {
-                return ServiceResult<bool>.Failure(
-                    ServiceError.NotFound,
-                    $"Order with ID {id} was not found.");
-            }
-
-            if (order.Status != OrderStatus.Pending)
-            {
-                return ServiceResult<bool>.Failure(
-                    ServiceError.Conflict,
-                    "Only pending orders can be deleted.");
-            }
-
-            _context.Orders.Remove(order);
-
-            await _context.SaveChangesAsync();
-
-            return ServiceResult<bool>.Success(true);
         }
     }
 }

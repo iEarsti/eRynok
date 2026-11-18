@@ -9,7 +9,7 @@
         public decimal UnitPrice { get; set; }
         public OrderStatus Status { get; set; } = OrderStatus.Pending;
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
-        public User Buyer { get; set; } = null!;
+        public ApplicationUser Buyer { get; set; } = null!;
         public Product Product { get; set; } = null!;
     }
 }

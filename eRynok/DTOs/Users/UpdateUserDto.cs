@@ -9,7 +9,7 @@ namespace eRynok.DTOs.Users
     public class UpdateUserDto
     {
         /// <summary>
-        /// Нове ім'я користувача. Від 2 до 150 символів.
+        /// Нове ім'я користувача.
         /// </summary>
         [Required]
         [StringLength(150, MinimumLength = 2)]
@@ -23,21 +23,22 @@ namespace eRynok.DTOs.Users
         public string Email { get; set; } = string.Empty;
 
         /// <summary>
-        /// Нова роль користувача: Seller, Buyer або Admin.
+        /// Нова роль користувача в системі.
+        /// 0 - Seller, 1 - Buyer, 2 - Admin.
         /// </summary>
         [Required]
         [EnumDataType(typeof(UserRole))]
         public UserRole Role { get; set; }
 
         /// <summary>
-        /// Новий контактний номер телефону. Обов'язковий для продавців і покупців.
+        /// Новий номер телефону користувача.
         /// </summary>
         [Phone]
         [StringLength(30, MinimumLength = 5)]
         public string? Phone { get; set; }
 
         /// <summary>
-        /// Нова адреса користувача. Обов'язкова для продавців і покупців.
+        /// Нова адреса користувача.
         /// </summary>
         [StringLength(200, MinimumLength = 3)]
         public string? Address { get; set; }

@@ -11,7 +11,7 @@
         public int UserId { get; set; }
         public DateTime CreatedAt { get; set; }
         public Category Category { get; set; } = null!;
-        public User Seller { get; set; } = null!;
+        public ApplicationUser Seller { get; set; } = null!;
         public ICollection<Order> Orders { get; set; } = new List<Order>();
     }
 }
