@@ -158,7 +158,7 @@ API надає можливості для управління товарами
 ### Клонування репозиторію
 
 ```bash
-git clone https://github.com/USERNAME/eRynok.Api.git
+git clone https://github.com/iEarsti/eRynok.git
 ```
 
 Перейдіть до директорії проєкту:
