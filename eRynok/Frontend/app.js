@@ -1,4 +1,4 @@
-﻿const API_BASE_URL = 'https://localhost:7082/api';
+﻿const API_BASE_URL = 'http://localhost:5131/api';
 const DEFAULT_PLACEHOLDER = "https://via.placeholder.com/200?text=Прев'ю+фото";
 
 // Стан застосунку
@@ -120,12 +120,15 @@ function renderCategories() {
     categoriesList.appendChild(li);
   });
 
-  categoriesList.querySelector('[data-id="all"]').addEventListener('click', (e) => {
-    document.getElementById('catalogTitle').textContent = 'Всі товари';
-    document.querySelectorAll('.categories-list li').forEach(el => el.classList.remove('active'));
-    e.target.classList.add('active');
-    renderProducts(products);
-  });
+  const allCategoryBtn = categoriesList.querySelector('[data-id="all"]');
+  if (allCategoryBtn) {
+    allCategoryBtn.addEventListener('click', (e) => {
+      document.getElementById('catalogTitle').textContent = 'Всі товари';
+      document.querySelectorAll('.categories-list li').forEach(el => el.classList.remove('active'));
+      e.target.classList.add('active');
+      renderProducts(products);
+    });
+  }
 }
 
 function populateCategorySelect() {
@@ -287,8 +290,6 @@ function routeView() {
 }
 
 // ================= ФУНКЦІОНАЛ ПРОДАВЦЯ (ROLE: 0) =================
-
-// Живе оновлення прев'ю картинки при вводі URL
 newProdImage.addEventListener('input', () => {
   const url = newProdImage.value.trim();
   formImgPreview.src = url || DEFAULT_PLACEHOLDER;
@@ -297,7 +298,6 @@ formImgPreview.addEventListener('error', () => {
   formImgPreview.src = DEFAULT_PLACEHOLDER;
 });
 
-// Відображення списку товарів продавця з мініатюрами
 function renderSellerProducts() {
   sellerProductsList.innerHTML = '';
   const myProducts = products.filter(p => p.userId === currentUser.id);
@@ -327,7 +327,6 @@ function renderSellerProducts() {
   });
 }
 
-// Заповнення форми даними для редагування
 window.startEditProduct = function(id) {
   const product = products.find(p => p.id === id);
   if (!product) return;
@@ -347,7 +346,6 @@ window.startEditProduct = function(id) {
   createProductForm.scrollIntoView({ behavior: 'smooth' });
 };
 
-// Скидання форми
 function resetProductForm() {
   editProdId.value = '';
   createProductForm.reset();
@@ -359,7 +357,7 @@ function resetProductForm() {
 
 cancelEditBtn.addEventListener('click', resetProductForm);
 
-// Створення або оновлення (POST або PUT)
+// Створення або оновлення товару
 createProductForm.addEventListener('submit', async (e) => {
   e.preventDefault();
 
@@ -374,10 +372,6 @@ createProductForm.addEventListener('submit', async (e) => {
     categoryId: parseInt(newProdCategory.value, 10),
     userId: currentUser.id
   };
-
-  if (isEditing) {
-    productData.id = targetId;
-  }
 
   const endpoint = isEditing ? `${API_BASE_URL}/Products/${targetId}` : `${API_BASE_URL}/Products`;
   const method = isEditing ? 'PUT' : 'POST';
@@ -410,7 +404,10 @@ window.deleteProduct = async function(id) {
   if (!confirm('Видалити цей товар з каталогу?')) return;
   try {
     const res = await fetch(`${API_BASE_URL}/Products/${id}`, { method: 'DELETE' });
-    if (!res.ok) throw new Error('Помилка видалення');
+    if (!res.ok) {
+      const err = await res.json().catch(() => null);
+      throw new Error(err?.message || 'Помилка видалення');
+    }
     await fetchProducts();
   } catch (err) {
     alert(err.message);
@@ -477,21 +474,26 @@ function renderAdminOrders(orders) {
   adminOrdersList.innerHTML = tableHtml;
 }
 
+// Виправлено: PATCH-запит та передача об'єкта { status }
 window.updateOrderStatus = async function(orderId, newStatus) {
   if (newStatus === '') return;
   try {
     const res = await fetch(`${API_BASE_URL}/Orders/${orderId}/status`, {
-      method: 'PUT',
+      method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(parseInt(newStatus, 10))
+      body: JSON.stringify({ status: parseInt(newStatus, 10) })
     });
-    if (!res.ok) throw new Error('Помилка зміни статусу');
-    fetchAdminOrders();
+    if (!res.ok) {
+      const err = await res.json().catch(() => null);
+      throw new Error(err?.message || 'Помилка зміни статусу');
+    }
+    await fetchAdminOrders();
   } catch (err) {
     alert(err.message);
   }
 };
 
+// Виправлено: передача обов'язкового поля description (мінімум 5 символів)
 createCategoryForm.addEventListener('submit', async (e) => {
   e.preventDefault();
   const name = document.getElementById('newCatName').value.trim();
@@ -501,9 +503,15 @@ createCategoryForm.addEventListener('submit', async (e) => {
     const res = await fetch(`${API_BASE_URL}/Categories`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name })
+      body: JSON.stringify({
+        name: name,
+        description: `Опис категорії ${name}`
+      })
     });
-    if (!res.ok) throw new Error('Помилка створення категорії');
+    if (!res.ok) {
+      const err = await res.json().catch(() => null);
+      throw new Error(err?.message || 'Помилка створення категорії');
+    }
     alert('Категорію створено!');
     document.getElementById('newCatName').value = '';
     await fetchCategories();
@@ -558,7 +566,10 @@ async function submitOrder() {
       body: JSON.stringify(orderData)
     });
 
-    if (!res.ok) throw new Error('Помилка сервера при створенні замовлення');
+    if (!res.ok) {
+      const err = await res.json().catch(() => null);
+      throw new Error(err?.message || 'Помилка сервера при створенні замовлення');
+    }
 
     alert(`Дякуємо, ${currentUser.name}! Замовлення оформлено.`);
     closeModal('checkoutModal');

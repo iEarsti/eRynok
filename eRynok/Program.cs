@@ -17,7 +17,7 @@ builder.Services.AddSwaggerGen(options =>
     {
         Title = "eRynok API",
         Version = "v1",
-        Description = "REST API äëÿ ìàðêåòïëåéñó eRynok. API äîçâîëÿº êåðóâàòè êîðèñòóâà÷àìè, òîâàðàìè, êàòåãîð³ÿìè òà çàìîâëåííÿìè."
+        Description = "REST API Ð´Ð»Ñ Ð¼Ð°Ñ€ÐºÐµÑ‚Ð¿Ð»ÐµÐ¹ÑÑƒ eRynok. API Ð´Ð¾Ð·Ð²Ð¾Ð»ÑÑ” ÐºÐµÑ€ÑƒÐ²Ð°Ñ‚Ð¸ ÐºÐ¾Ñ€Ð¸ÑÑ‚ÑƒÐ²Ð°Ñ‡Ð°Ð¼Ð¸, Ñ‚Ð¾Ð²Ð°Ñ€Ð°Ð¼Ð¸, ÐºÐ°Ñ‚ÐµÐ³Ð¾Ñ€Ñ–ÑÐ¼Ð¸ Ñ‚Ð° Ð·Ð°Ð¼Ð¾Ð²Ð»ÐµÐ½Ð½ÑÐ¼Ð¸."
     });
 
     var xmlFile = $"{System.Reflection.Assembly.GetExecutingAssembly().GetName().Name}.xml";
@@ -27,7 +27,6 @@ builder.Services.AddSwaggerGen(options =>
 });
 builder.Services.AddDbContext<eRynokDbContext>(options => options.UseSqlServer(
         builder.Configuration.GetConnectionString("DefaultConnection")));
-builder.Services.AddScoped<IProductService, ProductService>();
 builder.Services.AddScoped<IProductService, ProductService>();
 builder.Services.AddScoped<ICategoryService, CategoryService>();
 builder.Services.AddScoped<IUserService, UserService>();
@@ -48,6 +47,8 @@ var app = builder.Build();
 
 app.UseMiddleware<ExceptionMiddleware>();
 
+app.UseRouting();
+
 app.UseCors("AllowAll");
 
 // Configure the HTTP request pipeline.
@@ -57,7 +58,7 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
-app.UseHttpsRedirection();
+//app.UseHttpsRedirection();
 app.UseAuthorization();
 app.MapControllers();
 app.Run();
