@@ -1,5 +1,7 @@
 ﻿const API_BASE_URL = 'http://localhost:5131/api';
-const DEFAULT_PLACEHOLDER = "https://via.placeholder.com/200?text=Прев'ю+фото";
+
+// SVG-іконка зображення замість текстового плейсхолдера
+const DEFAULT_PLACEHOLDER = "data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='80' height='80' viewBox='0 0 24 24' fill='none' stroke='%23bbb' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='3' width='18' height='18' rx='2' ry='2'%3E%3C/rect%3E%3Ccircle cx='8.5' cy='8.5' r='1.5'%3E%3C/circle%3E%3Cpolyline points='21 15 16 10 5 21'%3E%3C/polyline%3E%3C/svg%3E";
 
 // Стан застосунку
 let users = [];
@@ -59,6 +61,13 @@ const sellerProductsList = document.getElementById('sellerProductsList');
 
 // DOM Панелі Адміністратора
 const createCategoryForm = document.getElementById('createCategoryForm');
+const categoryFormTitle = document.getElementById('categoryFormTitle');
+const editCatId = document.getElementById('editCatId');
+const newCatName = document.getElementById('newCatName');
+const newCatDesc = document.getElementById('newCatDesc');
+const categorySubmitBtn = document.getElementById('categorySubmitBtn');
+const cancelCatEditBtn = document.getElementById('cancelCatEditBtn');
+const adminCategoriesList = document.getElementById('adminCategoriesList');
 const adminOrdersList = document.getElementById('adminOrdersList');
 
 // ================= ІНІЦІАЛІЗАЦІЯ =================
@@ -104,6 +113,9 @@ async function fetchCategories() {
       categories = await res.json();
       renderCategories();
       populateCategorySelect();
+      if (currentUser && currentUser.role === 2) {
+        renderAdminCategories();
+      }
     }
   } catch (err) {
     console.error('Помилка завантаження категорій:', err);
@@ -281,6 +293,7 @@ function routeView() {
   } else if (currentUser && currentUser.role === 2) {
     viewAdmin.classList.add('active');
     searchBarBlock.style.display = 'none';
+    renderAdminCategories();
     fetchAdminOrders();
   } else {
     viewBuyer.classList.add('active');
@@ -357,7 +370,6 @@ function resetProductForm() {
 
 cancelEditBtn.addEventListener('click', resetProductForm);
 
-// Створення або оновлення товару
 createProductForm.addEventListener('submit', async (e) => {
   e.preventDefault();
 
@@ -415,6 +427,114 @@ window.deleteProduct = async function(id) {
 };
 
 // ================= ФУНКЦІОНАЛ АДМІНА (ROLE: 2) =================
+
+// Відображення списку категорій з кнопками дій
+function renderAdminCategories() {
+  if (!adminCategoriesList) return;
+  adminCategoriesList.innerHTML = '';
+
+  if (!categories || !categories.length) {
+    adminCategoriesList.innerHTML = '<p style="color:gray;">Категорії ще не додані.</p>';
+    return;
+  }
+
+  categories.forEach(cat => {
+    const item = document.createElement('div');
+    item.className = 'admin-category-item';
+    item.innerHTML = `
+      <div class="admin-category-info">
+        <strong>${cat.name}</strong>
+        <small>${cat.description || 'Опис відсутній'}</small>
+      </div>
+      <div class="item-actions-group">
+        <button class="edit-btn" onclick="startEditCategory(${cat.id})">Редагувати</button>
+        <button class="delete-btn" onclick="deleteCategory(${cat.id})">Видалити</button>
+      </div>
+    `;
+    adminCategoriesList.appendChild(item);
+  });
+}
+
+// Заповнення форми даними для редагування категорії
+window.startEditCategory = function(id) {
+  const cat = categories.find(c => c.id === id);
+  if (!cat) return;
+
+  editCatId.value = cat.id;
+  newCatName.value = cat.name;
+  newCatDesc.value = cat.description || `Опис категорії ${cat.name}`;
+  categoryFormTitle.textContent = `Редагування: ${cat.name}`;
+  categorySubmitBtn.textContent = 'Зберегти зміни';
+  cancelCatEditBtn.style.display = 'block';
+
+  createCategoryForm.scrollIntoView({ behavior: 'smooth' });
+};
+
+// Скидання форми категорій
+function resetCategoryForm() {
+  editCatId.value = '';
+  createCategoryForm.reset();
+  categoryFormTitle.textContent = 'Додати нову категорію';
+  categorySubmitBtn.textContent = 'Створити категорію';
+  cancelCatEditBtn.style.display = 'none';
+}
+
+cancelCatEditBtn.addEventListener('click', resetCategoryForm);
+
+// Створення або оновлення (POST або PUT)
+createCategoryForm.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const name = newCatName.value.trim();
+  const desc = newCatDesc.value.trim() || `Опис категорії ${name}`;
+  if (!name) return;
+
+  const isEditing = Boolean(editCatId.value);
+  const targetId = parseInt(editCatId.value, 10);
+
+  const endpoint = isEditing ? `${API_BASE_URL}/Categories/${targetId}` : `${API_BASE_URL}/Categories`;
+  const method = isEditing ? 'PUT' : 'POST';
+
+  try {
+    categorySubmitBtn.disabled = true;
+    const res = await fetch(endpoint, {
+      method: method,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name: name,
+        description: desc
+      })
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => null);
+      throw new Error(err?.message || 'Помилка збереження категорії');
+    }
+
+    alert(isEditing ? 'Категорію успішно змінено!' : 'Категорію створено!');
+    resetCategoryForm();
+    await fetchCategories();
+  } catch (err) {
+    alert(err.message);
+  } finally {
+    categorySubmitBtn.disabled = false;
+  }
+});
+
+// Видалення категорії
+window.deleteCategory = async function(id) {
+  if (!confirm('Ви дійсно хочете видалити цю категорію?')) return;
+  try {
+    const res = await fetch(`${API_BASE_URL}/Categories/${id}`, { method: 'DELETE' });
+    if (!res.ok) {
+      const err = await res.json().catch(() => null);
+      throw new Error(err?.message || 'Помилка видалення (можливо, до неї прив’язані товари)');
+    }
+    await fetchCategories();
+  } catch (err) {
+    alert(err.message);
+  }
+};
+
 async function fetchAdminOrders() {
   try {
     const res = await fetch(`${API_BASE_URL}/Orders`);
@@ -474,7 +594,6 @@ function renderAdminOrders(orders) {
   adminOrdersList.innerHTML = tableHtml;
 }
 
-// Виправлено: PATCH-запит та передача об'єкта { status }
 window.updateOrderStatus = async function(orderId, newStatus) {
   if (newStatus === '') return;
   try {
@@ -492,33 +611,6 @@ window.updateOrderStatus = async function(orderId, newStatus) {
     alert(err.message);
   }
 };
-
-// Виправлено: передача обов'язкового поля description (мінімум 5 символів)
-createCategoryForm.addEventListener('submit', async (e) => {
-  e.preventDefault();
-  const name = document.getElementById('newCatName').value.trim();
-  if (!name) return;
-
-  try {
-    const res = await fetch(`${API_BASE_URL}/Categories`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        name: name,
-        description: `Опис категорії ${name}`
-      })
-    });
-    if (!res.ok) {
-      const err = await res.json().catch(() => null);
-      throw new Error(err?.message || 'Помилка створення категорії');
-    }
-    alert('Категорію створено!');
-    document.getElementById('newCatName').value = '';
-    await fetchCategories();
-  } catch (err) {
-    alert(err.message);
-  }
-});
 
 // ================= ОФОРМЛЕННЯ ЗАМОВЛЕННЯ =================
 function openCheckout(productId) {
