@@ -4,7 +4,7 @@
     "Name": "Samsung Galaxy S25",
     "Description": "Smartphone with 256GB storage",
     "Price": 35999,
-    "ImageUrl": "https://example.com/samsung-s25.jpg",
+    "ImageUrl": "https://cdn.samsungshop.com.ua/products/9501/cover/205846/S25-Icyblue.webp",
     "CategoryId": 1,
     "UserId": 1,
     "CreatedAt": "2026-11-17T02:22:57.4626065Z"
@@ -14,19 +14,19 @@
     "Name": "Apple MacBook Air M4",
     "Description": "Laptop with 16GB RAM and 512GB SSD",
     "Price": 52999,
-    "ImageUrl": "https://example.com/macbook-air.jpg",
+    "ImageUrl": "https://www.istore.ua/upload/iblock/50f/dpjbppsjl502ze0f3sadanlayb5j33hq/makbuk_air_13_m4_6_is.png",
     "CategoryId": 2,
     "UserId": 2,
     "CreatedAt": "2026-11-17T02:22:57.4627332Z"
   },
   {
     "Id": 3,
-    "Name": "\u043E\u0434\u044F\u0433",
-    "Description": "\u043F\u0440\u043E\u0441\u0442\u043E \u043E\u0434\u044F\u0433",
-    "Price": 100000000,
-    "ImageUrl": "https://example.com/closes.jpg",
-    "CategoryId": 4,
+    "Name": "\u041D\u043E\u0443\u0442\u0431\u0443\u043A Lenovo",
+    "Description": "\u041F\u0440\u0430\u0446\u044E\u044E\u0447\u0430 \u043C\u0430\u0448\u0438\u043D\u043A\u0430, \u043D\u0456\u043A\u043E\u043B\u0438 \u043D\u0435 \u043F\u0456\u0434\u0432\u043E\u0434\u0438\u0442\u044C, \u043F\u0440\u043E\u0434\u0443\u043A\u0442\u0438\u0432\u043D\u0430",
+    "Price": 40000,
+    "ImageUrl": "https://p3-ofp.static.pub//fes/cms/2025/05/06/jplp9wvhfh38cux3hrzx2nogv5ayob227778.png?width=328\u0026height=328",
+    "CategoryId": 2,
     "UserId": 1,
-    "CreatedAt": "2026-11-17T10:07:10.6135512Z"
+    "CreatedAt": "2026-11-17T11:32:46.9205319Z"
   }
 ]
