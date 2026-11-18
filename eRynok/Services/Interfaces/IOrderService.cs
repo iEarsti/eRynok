@@ -18,5 +18,7 @@ namespace eRynok.Services.Interfaces
         Task<ServiceResult<bool>> UpdateOrderStatus(
             int id,
             UpdateOrderStatusDto dto);
+
+        Task<ServiceResult<bool>> DeleteOrder(int id);
     }
 }

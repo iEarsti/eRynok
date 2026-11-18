@@ -151,5 +151,31 @@ namespace eRynok.Services
                 CreatedAt = order.CreatedAt
             };
         }
+
+        public async Task<ServiceResult<bool>> DeleteOrder(int id)
+        {
+            var order = await _context.Orders
+                .FirstOrDefaultAsync(o => o.Id == id);
+
+            if (order == null)
+            {
+                return ServiceResult<bool>.Failure(
+                    ServiceError.NotFound,
+                    $"Order with ID {id} was not found.");
+            }
+
+            if (order.Status != OrderStatus.Pending)
+            {
+                return ServiceResult<bool>.Failure(
+                    ServiceError.Conflict,
+                    "Only pending orders can be deleted.");
+            }
+
+            _context.Orders.Remove(order);
+
+            await _context.SaveChangesAsync();
+
+            return ServiceResult<bool>.Success(true);
+        }
     }
 }

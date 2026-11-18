@@ -17,7 +17,14 @@ namespace eRynok.Controllers
             _userService = userService;
         }
 
+        /// <summary>
+        /// Отримує список користувачів із можливістю пошуку та фільтрації за роллю.
+        /// </summary>
+        /// <param name="search">Пошуковий запит за ім'ям або електронною поштою.</param>
+        /// <param name="role">Роль користувачів для фільтрації.</param>
+        /// <response code="200">Список користувачів успішно отримано.</response>
         [HttpGet]
+        [ProducesResponseType(typeof(IEnumerable<UserResponseDto>), StatusCodes.Status200OK)]
         public async Task<IActionResult> GetUsers(
             [FromQuery] string? search,
             [FromQuery] UserRole? role)
@@ -27,7 +34,15 @@ namespace eRynok.Controllers
             return Ok(users);
         }
 
+        /// <summary>
+        /// Отримує інформацію про користувача за його ідентифікатором.
+        /// </summary>
+        /// <param name="id">Ідентифікатор користувача.</param>
+        /// <response code="200">Користувача успішно знайдено.</response>
+        /// <response code="404">Користувача з таким ідентифікатором не знайдено.</response>
         [HttpGet("{id}")]
+        [ProducesResponseType(typeof(UserResponseDto), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
         public async Task<IActionResult> GetUser(int id)
         {
             var user = await _userService.GetUser(id);
@@ -38,7 +53,17 @@ namespace eRynok.Controllers
             return Ok(user);
         }
 
+        /// <summary>
+        /// Створює нового користувача з відповідною роллю та профільними даними.
+        /// </summary>
+        /// <param name="dto">Дані для створення користувача.</param>
+        /// <response code="201">Користувача успішно створено.</response>
+        /// <response code="400">Передані некоректні дані або відсутні необхідні профільні дані.</response>
+        /// <response code="409">Користувач із такою електронною поштою вже існує.</response>
         [HttpPost]
+        [ProducesResponseType(typeof(UserResponseDto), StatusCodes.Status201Created)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status409Conflict)]
         public async Task<IActionResult> CreateUser(CreateUserDto dto)
         {
             var result = await _userService.CreateUser(dto);
@@ -54,7 +79,20 @@ namespace eRynok.Controllers
                 user);
         }
 
+        /// <summary>
+        /// Оновлює інформацію про користувача та його профіль.
+        /// </summary>
+        /// <param name="id">Ідентифікатор користувача.</param>
+        /// <param name="dto">Нові дані користувача.</param>
+        /// <response code="204">Інформацію про користувача успішно оновлено.</response>
+        /// <response code="400">Передані некоректні дані або відсутні необхідні профільні дані.</response>
+        /// <response code="404">Користувача не знайдено.</response>
+        /// <response code="409">Електронна пошта вже використовується або неможливо змінити роль користувача через наявні товари.</response>
         [HttpPut("{id}")]
+        [ProducesResponseType(StatusCodes.Status204NoContent)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        [ProducesResponseType(StatusCodes.Status409Conflict)]
         public async Task<IActionResult> UpdateUser(int id, UpdateUserDto dto)
         {
             var result = await _userService.UpdateUser(id, dto);
@@ -65,7 +103,17 @@ namespace eRynok.Controllers
             return NoContent();
         }
 
+        /// <summary>
+        /// Видаляє користувача, якщо він не має товарів або замовлень покупця.
+        /// </summary>
+        /// <param name="id">Ідентифікатор користувача.</param>
+        /// <response code="204">Користувача успішно видалено.</response>
+        /// <response code="404">Користувача не знайдено.</response>
+        /// <response code="409">Неможливо видалити користувача, оскільки він має пов'язані товари або замовлення.</response>
         [HttpDelete("{id}")]
+        [ProducesResponseType(StatusCodes.Status204NoContent)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        [ProducesResponseType(StatusCodes.Status409Conflict)]
         public async Task<IActionResult> DeleteUser(int id)
         {
             var result = await _userService.DeleteUser(id);
