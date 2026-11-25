@@ -10,15 +10,15 @@ namespace eRynok.Repositories.Interfaces
             OrderStatus? status);
 
         Task<Order?> GetOrder(int id);
+        Task<OrderGroup?> GetOrderGroupByBuyerId(int buyerId);
 
         Task<bool> BuyerExists(int buyerId);
-
         Task<bool> ProductExists(int productId);
 
         Task AddOrder(Order order);
-
+        Task AddOrders(IEnumerable<Order> orders);
+        Task AddOrderGroup(OrderGroup orderGroup);
         Task UpdateOrder(Order order);
-
         Task DeleteOrder(Order order);
     }
 }

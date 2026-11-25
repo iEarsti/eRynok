@@ -13,5 +13,7 @@ namespace eRynok.Models
         public ICollection<Product> Products { get; set; } = new List<Product>();
 
         public ICollection<Order> Orders { get; set; } = new List<Order>();
+
+        public ICollection<OrderGroup> OrderGroups { get; set; } = new List<OrderGroup>();
     }
 }

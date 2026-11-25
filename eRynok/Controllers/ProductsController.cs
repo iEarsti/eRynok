@@ -2,6 +2,8 @@
 using eRynok.DTOs.Products;
 using eRynok.Services;
 using eRynok.Services.Interfaces;
+using Microsoft.AspNetCore.Authorization;
+using System.Security.Claims;
 
 namespace eRynok.Controllers
 {
@@ -26,6 +28,7 @@ namespace eRynok.Controllers
         /// <param name="maxPrice">Максимальна ціна товару.</param>
         /// <response code="200">Список товарів успішно отримано.</response>
         [HttpGet]
+        [AllowAnonymous]
         [ProducesResponseType(typeof(IEnumerable<ProductResponseDto>), StatusCodes.Status200OK)]
         public async Task<IActionResult> GetProducts(
             [FromQuery] string? search,
@@ -51,6 +54,7 @@ namespace eRynok.Controllers
         /// <response code="200">Товар успішно знайдено.</response>
         /// <response code="404">Товар з таким ідентифікатором не знайдено.</response>
         [HttpGet("{id}")]
+        [AllowAnonymous]
         [ProducesResponseType(typeof(ProductResponseDto), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         public async Task<IActionResult> GetProduct(int id)
@@ -70,21 +74,29 @@ namespace eRynok.Controllers
         /// <response code="201">Товар успішно створено.</response>
         /// <response code="400">Передані некоректні дані або категорія чи продавець не існують.</response>
         [HttpPost]
-        [ProducesResponseType(typeof(ProductResponseDto), StatusCodes.Status201Created)]
+        [Authorize(Roles = "Seller,Admin")]
+        [ProducesResponseType(StatusCodes.Status201Created)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
-        public async Task<IActionResult> CreateProduct(CreateProductDto dto)
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(StatusCodes.Status403Forbidden)]
+        public async Task<IActionResult> CreateProduct(
+    [FromBody] CreateProductDto dto)
         {
-            var result = await _productService.CreateProduct(dto);
+            int currentUserId = int.Parse(
+                User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+
+            bool isAdmin = User.IsInRole("Admin");
+
+            var result = await _productService.CreateProduct(
+                dto, currentUserId, isAdmin);
 
             if (!result.IsSuccess)
                 return HandleFailure(result);
 
-            var product = result.Data!;
-
             return CreatedAtAction(
                 nameof(GetProduct),
-                new { id = product.Id },
-                product);
+                new { id = result.Data!.Id },
+                result.Data);
         }
 
         /// <summary>
@@ -96,17 +108,28 @@ namespace eRynok.Controllers
         /// <response code="400">Передані некоректні дані або посилання на категорію чи продавця недійсне.</response>
         /// <response code="404">Товар не знайдено.</response>
         [HttpPut("{id}")]
-        [ProducesResponseType(StatusCodes.Status204NoContent)]
+        [Authorize(Roles = "Seller,Admin")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(StatusCodes.Status403Forbidden)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
-        public async Task<IActionResult> UpdateProduct(int id, UpdateProductDto dto)
+        public async Task<IActionResult> UpdateProduct(
+        int id,
+        [FromBody] UpdateProductDto dto)
         {
-            var result = await _productService.UpdateProduct(id, dto);
+            int currentUserId = int.Parse(
+                User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+
+            bool isAdmin = User.IsInRole("Admin");
+
+            var result = await _productService.UpdateProduct(
+                id, dto, currentUserId, isAdmin);
 
             if (!result.IsSuccess)
                 return HandleFailure(result);
 
-            return NoContent();
+            return Ok(new { message = "Товар успішно оновлено." });
         }
 
         /// <summary>
@@ -117,17 +140,26 @@ namespace eRynok.Controllers
         /// <response code="404">Товар не знайдено.</response>
         /// <response code="409">Неможливо видалити товар, оскільки він присутній у замовленнях.</response>
         [HttpDelete("{id}")]
-        [ProducesResponseType(StatusCodes.Status204NoContent)]
+        [Authorize(Roles = "Seller,Admin")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(StatusCodes.Status403Forbidden)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         [ProducesResponseType(StatusCodes.Status409Conflict)]
         public async Task<IActionResult> DeleteProduct(int id)
         {
-            var result = await _productService.DeleteProduct(id);
+            int currentUserId = int.Parse(
+                User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+
+            bool isAdmin = User.IsInRole("Admin");
+
+            var result = await _productService.DeleteProduct(
+                id, currentUserId, isAdmin);
 
             if (!result.IsSuccess)
                 return HandleFailure(result);
 
-            return NoContent();
+            return Ok(new { message = "Товар успішно видалено." });
         }
 
         private IActionResult HandleFailure<T>(ServiceResult<T> result)
@@ -142,6 +174,9 @@ namespace eRynok.Controllers
 
                 ServiceError.Conflict =>
                     Conflict(new { message = result.Message }),
+
+                ServiceError.Forbidden =>
+                    StatusCode(StatusCodes.Status403Forbidden, new { message = result.Message }),
 
                 _ => BadRequest(new { message = result.Message })
             };

@@ -291,6 +291,9 @@ namespace eRynok.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
+                    b.Property<int?>("OrderGroupId")
+                        .HasColumnType("int");
+
                     b.Property<int>("ProductId")
                         .HasColumnType("int");
 
@@ -307,9 +310,32 @@ namespace eRynok.Migrations
 
                     b.HasIndex("BuyerId");
 
+                    b.HasIndex("OrderGroupId");
+
                     b.HasIndex("ProductId");
 
                     b.ToTable("Orders");
+                });
+
+            modelBuilder.Entity("eRynok.Models.OrderGroup", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("BuyerId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BuyerId");
+
+                    b.ToTable("OrderGroups");
                 });
 
             modelBuilder.Entity("eRynok.Models.Product", b =>
@@ -443,6 +469,11 @@ namespace eRynok.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
+                    b.HasOne("eRynok.Models.OrderGroup", "OrderGroup")
+                        .WithMany("Orders")
+                        .HasForeignKey("OrderGroupId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("eRynok.Models.Product", "Product")
                         .WithMany("Orders")
                         .HasForeignKey("ProductId")
@@ -451,7 +482,20 @@ namespace eRynok.Migrations
 
                     b.Navigation("Buyer");
 
+                    b.Navigation("OrderGroup");
+
                     b.Navigation("Product");
+                });
+
+            modelBuilder.Entity("eRynok.Models.OrderGroup", b =>
+                {
+                    b.HasOne("eRynok.Models.ApplicationUser", "Buyer")
+                        .WithMany("OrderGroups")
+                        .HasForeignKey("BuyerId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Buyer");
                 });
 
             modelBuilder.Entity("eRynok.Models.Product", b =>
@@ -488,6 +532,8 @@ namespace eRynok.Migrations
                 {
                     b.Navigation("BuyerProfile");
 
+                    b.Navigation("OrderGroups");
+
                     b.Navigation("Orders");
 
                     b.Navigation("Products");
@@ -498,6 +544,11 @@ namespace eRynok.Migrations
             modelBuilder.Entity("eRynok.Models.Category", b =>
                 {
                     b.Navigation("Products");
+                });
+
+            modelBuilder.Entity("eRynok.Models.OrderGroup", b =>
+                {
+                    b.Navigation("Orders");
                 });
 
             modelBuilder.Entity("eRynok.Models.Product", b =>

@@ -5,7 +5,8 @@
         None,
         NotFound,
         InvalidReference,
-        Conflict
+        Conflict,
+        Forbidden
     }
 
     public class ServiceResult<T>

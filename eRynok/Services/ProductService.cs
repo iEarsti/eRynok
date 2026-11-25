@@ -41,26 +41,30 @@ namespace eRynok.Services
         }
 
         public async Task<ServiceResult<ProductResponseDto>> CreateProduct(
-            CreateProductDto dto)
+            CreateProductDto dto,
+            int currentUserId,
+            bool isAdmin)
         {
-            bool categoryExists = await _productRepository.CategoryExists(
-                dto.CategoryId);
+            bool categoryExists = await _productRepository.CategoryExists(dto.CategoryId);
 
             if (!categoryExists)
             {
                 return ServiceResult<ProductResponseDto>.Failure(
                     ServiceError.InvalidReference,
-                    $"Category with ID {dto.CategoryId} does not exist.");
+                    "Категорію не знайдено.");
             }
 
-            bool sellerExists = await _productRepository.SellerExists(
-                dto.UserId);
+            // Продавець створює товар від власного імені.
+            // Адміністратор може вказати ID будь-якого продавця.
+            int sellerId = isAdmin ? dto.UserId : currentUserId;
+
+            bool sellerExists = await _productRepository.SellerExists(sellerId);
 
             if (!sellerExists)
             {
                 return ServiceResult<ProductResponseDto>.Failure(
                     ServiceError.InvalidReference,
-                    $"Seller with ID {dto.UserId} does not exist.");
+                    "Продавця не знайдено.");
             }
 
             var product = new Product
@@ -70,19 +74,20 @@ namespace eRynok.Services
                 Price = dto.Price,
                 ImageUrl = dto.ImageUrl,
                 CategoryId = dto.CategoryId,
-                UserId = dto.UserId,
+                UserId = sellerId,
                 CreatedAt = DateTime.UtcNow
             };
 
             await _productRepository.AddProduct(product);
 
-            return ServiceResult<ProductResponseDto>.Success(
-                MapToDto(product));
+            return ServiceResult<ProductResponseDto>.Success(MapToDto(product));
         }
 
         public async Task<ServiceResult<bool>> UpdateProduct(
             int id,
-            UpdateProductDto dto)
+            UpdateProductDto dto,
+            int currentUserId,
+            bool isAdmin)
         {
             var product = await _productRepository.GetProduct(id);
 
@@ -90,27 +95,39 @@ namespace eRynok.Services
             {
                 return ServiceResult<bool>.Failure(
                     ServiceError.NotFound,
-                    $"Product with ID {id} was not found.");
+                    "Товар не знайдено.");
             }
 
-            bool categoryExists = await _productRepository.CategoryExists(
-                dto.CategoryId);
+            // Продавець може редагувати лише власний товар.
+            if (!isAdmin && product.UserId != currentUserId)
+            {
+                return ServiceResult<bool>.Failure(
+                    ServiceError.Forbidden,
+                    "Ви не маєте права редагувати цей товар.");
+            }
+
+            bool categoryExists = await _productRepository.CategoryExists(dto.CategoryId);
 
             if (!categoryExists)
             {
                 return ServiceResult<bool>.Failure(
                     ServiceError.InvalidReference,
-                    $"Category with ID {dto.CategoryId} does not exist.");
+                    "Категорію не знайдено.");
             }
 
-            bool sellerExists = await _productRepository.SellerExists(
-                dto.UserId);
-
-            if (!sellerExists)
+            // Змінювати власника товару може лише адміністратор.
+            if (isAdmin)
             {
-                return ServiceResult<bool>.Failure(
-                    ServiceError.InvalidReference,
-                    $"Seller with ID {dto.UserId} does not exist.");
+                bool sellerExists = await _productRepository.SellerExists(dto.UserId);
+
+                if (!sellerExists)
+                {
+                    return ServiceResult<bool>.Failure(
+                        ServiceError.InvalidReference,
+                        "Продавця не знайдено.");
+                }
+
+                product.UserId = dto.UserId;
             }
 
             product.Name = dto.Name.Trim();
@@ -118,14 +135,16 @@ namespace eRynok.Services
             product.Price = dto.Price;
             product.ImageUrl = dto.ImageUrl;
             product.CategoryId = dto.CategoryId;
-            product.UserId = dto.UserId;
 
             await _productRepository.UpdateProduct(product);
 
             return ServiceResult<bool>.Success(true);
         }
 
-        public async Task<ServiceResult<bool>> DeleteProduct(int id)
+        public async Task<ServiceResult<bool>> DeleteProduct(
+            int id,
+            int currentUserId,
+            bool isAdmin)
         {
             var product = await _productRepository.GetProduct(id);
 
@@ -133,7 +152,15 @@ namespace eRynok.Services
             {
                 return ServiceResult<bool>.Failure(
                     ServiceError.NotFound,
-                    $"Product with ID {id} was not found.");
+                    "Товар не знайдено.");
+            }
+
+            // Продавець може видаляти лише власний товар.
+            if (!isAdmin && product.UserId != currentUserId)
+            {
+                return ServiceResult<bool>.Failure(
+                    ServiceError.Forbidden,
+                    "Ви не маєте права видаляти цей товар.");
             }
 
             bool hasOrders = await _productRepository.HasOrders(id);
@@ -142,7 +169,7 @@ namespace eRynok.Services
             {
                 return ServiceResult<bool>.Failure(
                     ServiceError.Conflict,
-                    "Cannot delete product because it has existing orders.");
+                    "Неможливо видалити товар, який присутній у замовленнях.");
             }
 
             await _productRepository.DeleteProduct(product);

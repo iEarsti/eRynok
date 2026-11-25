@@ -24,6 +24,8 @@ namespace eRynok.Data
 
         public DbSet<Order> Orders { get; set; }
 
+        public DbSet<OrderGroup> OrderGroups { get; set; }
+
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
@@ -64,6 +66,11 @@ namespace eRynok.Data
                 entity.HasMany(u => u.Orders)
                     .WithOne(o => o.Buyer)
                     .HasForeignKey(o => o.BuyerId)
+                    .OnDelete(DeleteBehavior.Restrict);
+
+                entity.HasMany(u => u.OrderGroups)
+                    .WithOne(g => g.Buyer)
+                    .HasForeignKey(g => g.BuyerId)
                     .OnDelete(DeleteBehavior.Restrict);
             });
 
@@ -160,6 +167,20 @@ namespace eRynok.Data
                     .IsRequired();
 
                 entity.Property(o => o.CreatedAt)
+                    .IsRequired();
+
+                entity.HasOne(o => o.OrderGroup)
+                    .WithMany(g => g.Orders)
+                    .HasForeignKey(o => o.OrderGroupId)
+                    .OnDelete(DeleteBehavior.Restrict);
+            });
+
+            // OrderGroup configuration
+            modelBuilder.Entity<OrderGroup>(entity =>
+            {
+                entity.HasKey(g => g.Id);
+
+                entity.Property(g => g.CreatedAt)
                     .IsRequired();
             });
         }

@@ -14,12 +14,19 @@ namespace eRynok.Services.Interfaces
         Task<ProductResponseDto?> GetProduct(int id);
 
         Task<ServiceResult<ProductResponseDto>> CreateProduct(
-            CreateProductDto dto);
+            CreateProductDto dto,
+            int currentUserId,
+            bool isAdmin);
 
         Task<ServiceResult<bool>> UpdateProduct(
             int id,
-            UpdateProductDto dto);
+            UpdateProductDto dto,
+            int currentUserId,
+            bool isAdmin);
 
-        Task<ServiceResult<bool>> DeleteProduct(int id);
+        Task<ServiceResult<bool>> DeleteProduct(
+            int id,
+            int currentUserId,
+            bool isAdmin);
     }
 }

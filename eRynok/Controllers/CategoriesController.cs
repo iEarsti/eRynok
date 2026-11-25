@@ -2,6 +2,7 @@
 using eRynok.Services;
 using eRynok.Services.Interfaces;
 using eRynok.DTOs.Categories;
+using Microsoft.AspNetCore.Authorization;
 
 namespace eRynok.Controllers
 {
@@ -22,6 +23,7 @@ namespace eRynok.Controllers
         /// <param name="search">Пошуковий запит за назвою або описом категорії.</param>
         /// <response code="200">Список категорій успішно отримано.</response>
         [HttpGet]
+        [AllowAnonymous]
         [ProducesResponseType(typeof(IEnumerable<CategoryResponseDto>), StatusCodes.Status200OK)]
         public async Task<IActionResult> GetCategories([FromQuery] string? search)
         {
@@ -37,6 +39,7 @@ namespace eRynok.Controllers
         /// <response code="200">Категорію знайдено.</response>
         /// <response code="404">Категорію з таким ідентифікатором не знайдено.</response>
         [HttpGet("{id}")]
+        [AllowAnonymous]
         [ProducesResponseType(typeof(CategoryResponseDto), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         public async Task<IActionResult> GetCategory(int id)
@@ -57,6 +60,7 @@ namespace eRynok.Controllers
         /// <response code="400">Передані некоректні дані.</response>
         /// <response code="409">Категорія з такою назвою вже існує.</response>
         [HttpPost]
+        [Authorize(Roles = "Admin")]
         [ProducesResponseType(typeof(CategoryResponseDto), StatusCodes.Status201Created)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status409Conflict)]
@@ -79,10 +83,12 @@ namespace eRynok.Controllers
         /// Змінює існуючу категорію.
         /// </summary>
         /// <param name="id">Ідентифікатор категорії.</param>
+        /// <param name="dto">Нові дані категорії.</param>
         /// <response code="204">Категорію успішно змінено.</response>
         /// <response code="400">Передані некоректні дані.</response>
         /// <response code="409">Категорія з такою назвою вже існує.</response>
         [HttpPut("{id}")]
+        [Authorize(Roles = "Admin")]
         [ProducesResponseType(StatusCodes.Status204NoContent)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -98,13 +104,14 @@ namespace eRynok.Controllers
         }
 
         /// <summary>
-        /// Змінює існуючу категорію.
+        /// Видаляє категорію.
         /// </summary>
         /// <param name="id">Ідентифікатор категорії.</param>
         /// <response code="204">Категорію успішно видалено.</response>
         /// <response code="404">Категорію не знайдено.</response>
         /// <response code="409">Не можна видалити категорію, яка має товари.</response>
         [HttpDelete("{id}")]
+        [Authorize(Roles = "Admin")]
         [ProducesResponseType(StatusCodes.Status204NoContent)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         [ProducesResponseType(StatusCodes.Status409Conflict)]

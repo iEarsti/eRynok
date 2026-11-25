@@ -3,7 +3,6 @@ using eRynok.Models;
 using eRynok.Repositories.Interfaces;
 using Microsoft.EntityFrameworkCore;
 
-
 namespace eRynok.Repositories
 {
     public class OrderRepository : IOrderRepository
@@ -52,6 +51,14 @@ namespace eRynok.Repositories
                 .FirstOrDefaultAsync(o => o.Id == id);
         }
 
+        public async Task<OrderGroup?> GetOrderGroupByBuyerId(int buyerId)
+        {
+            return await _context.OrderGroups
+                .Include(og => og.Orders)
+                    .ThenInclude(o => o.Product)
+                .FirstOrDefaultAsync(og => og.BuyerId == buyerId);
+        }
+
         public async Task<bool> BuyerExists(int buyerId)
         {
             return await (
@@ -76,16 +83,102 @@ namespace eRynok.Repositories
             await _context.SaveChangesAsync();
         }
 
+        public async Task AddOrders(IEnumerable<Order> orders)
+        {
+            await _context.Orders.AddRangeAsync(orders);
+            await _context.SaveChangesAsync();
+        }
+
+        public async Task AddOrderGroup(OrderGroup orderGroup)
+        {
+            await _context.OrderGroups.AddAsync(orderGroup);
+            await _context.SaveChangesAsync();
+        }
+
         public async Task UpdateOrder(Order order)
         {
-            _context.Orders.Update(order);
-            await _context.SaveChangesAsync();
+            using var transaction =
+                await _context.Database.BeginTransactionAsync();
+
+            try
+            {
+                int? orderGroupId = order.OrderGroupId;
+
+                if (orderGroupId.HasValue &&
+                    order.Status != OrderStatus.Pending)
+                {
+                    order.OrderGroupId = null;
+                }
+
+                await _context.SaveChangesAsync();
+
+                if (orderGroupId.HasValue &&
+                    order.Status != OrderStatus.Pending)
+                {
+                    bool hasPendingOrders = await _context.Orders
+                        .AnyAsync(o =>
+                            o.OrderGroupId == orderGroupId.Value &&
+                            o.Status == OrderStatus.Pending);
+
+                    if (!hasPendingOrders)
+                    {
+                        var orderGroup = await _context.OrderGroups
+                            .FindAsync(orderGroupId.Value);
+
+                        if (orderGroup != null)
+                        {
+                            _context.OrderGroups.Remove(orderGroup);
+                            await _context.SaveChangesAsync();
+                        }
+                    }
+                }
+
+                await transaction.CommitAsync();
+            }
+            catch
+            {
+                await transaction.RollbackAsync();
+                throw;
+            }
         }
 
         public async Task DeleteOrder(Order order)
         {
-            _context.Orders.Remove(order);
-            await _context.SaveChangesAsync();
+            using var transaction =
+                await _context.Database.BeginTransactionAsync();
+
+            try
+            {
+                int? orderGroupId = order.OrderGroupId;
+
+                _context.Orders.Remove(order);
+                await _context.SaveChangesAsync();
+
+                if (orderGroupId.HasValue)
+                {
+                    bool hasOrders = await _context.Orders
+                        .AnyAsync(o => o.OrderGroupId == orderGroupId.Value);
+
+                    if (!hasOrders)
+                    {
+                        var orderGroup = await _context.OrderGroups
+                            .FindAsync(orderGroupId.Value);
+
+                        if (orderGroup != null)
+                        {
+                            _context.OrderGroups.Remove(orderGroup);
+                            await _context.SaveChangesAsync();
+                        }
+                    }
+                }
+
+                await transaction.CommitAsync();
+            }
+            catch
+            {
+                await transaction.RollbackAsync();
+                throw;
+            }
         }
     }
 }
