@@ -80,7 +80,7 @@ namespace eRynok.Controllers
         [ProducesResponseType(StatusCodes.Status401Unauthorized)]
         [ProducesResponseType(StatusCodes.Status403Forbidden)]
         public async Task<IActionResult> CreateProduct(
-    [FromBody] CreateProductDto dto)
+        [FromBody] CreateProductDto dto)
         {
             int currentUserId = int.Parse(
                 User.FindFirstValue(ClaimTypes.NameIdentifier)!);

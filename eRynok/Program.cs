@@ -126,7 +126,9 @@ var app = builder.Build();
 
 using (var scope = app.Services.CreateScope())
 {
-    await RoleSeeder.SeedRoles(scope.ServiceProvider);
+    await RoleSeeder.SeedRoles(
+        scope.ServiceProvider,
+        app.Configuration);
 }
 
 app.UseMiddleware<ExceptionMiddleware>();

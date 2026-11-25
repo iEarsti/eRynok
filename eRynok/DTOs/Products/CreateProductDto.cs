@@ -43,6 +43,6 @@ namespace eRynok.DTOs.Products
         /// Ідентифікатор користувача з роллю продавця.
         /// </summary>
         [Range(1, int.MaxValue)]
-        public int UserId { get; set; }
+        public int? UserId { get; set; }
     }
 }

@@ -125,7 +125,7 @@ namespace eRynok.Controllers
         /// <response code="403">Немає дозволу на зміну цього замовлення.</response>
         /// <response code="404">Замовлення не знайдено.</response>
         [HttpPatch("{id}/status")]
-        [Authorize(Roles = "Seller,Admin")]
+        [Authorize(Roles = "Buyer,Seller,Admin")]
         [ProducesResponseType(StatusCodes.Status204NoContent)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status403Forbidden)]

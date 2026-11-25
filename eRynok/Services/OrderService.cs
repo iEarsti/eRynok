@@ -229,30 +229,71 @@ namespace eRynok.Services
                     $"Order with ID {id} was not found.");
             }
 
-            if (currentUserRole != UserRole.Admin &&
-                currentUserRole != UserRole.Seller)
+            if (currentUserRole == UserRole.Buyer)
             {
-                return ServiceResult<bool>.Failure(
-                    ServiceError.Forbidden,
-                    "You do not have permission to update order status.");
-            }
+                if (order.BuyerId != currentUserId)
+                {
+                    return ServiceResult<bool>.Failure(
+                        ServiceError.Forbidden,
+                        "You do not have permission to update this order.");
+                }
 
-            if (currentUserRole == UserRole.Seller &&
-                order.Product.UserId != currentUserId)
+                if (order.Status != OrderStatus.Pending)
+                {
+                    return ServiceResult<bool>.Failure(
+                        ServiceError.Forbidden,
+                        "You can only change the quantity of pending orders.");
+                }
+
+                if (!dto.Quantity.HasValue || dto.Status.HasValue)
+                {
+                    return ServiceResult<bool>.Failure(
+                        ServiceError.InvalidReference,
+                        "Buyer can only update order quantity.");
+                }
+
+                if (dto.Quantity < 1 || dto.Quantity > 1000)
+                {
+                    return ServiceResult<bool>.Failure(
+                        ServiceError.InvalidReference,
+                        "Quantity must be between 1 and 1000.");
+                }
+
+                order.Quantity = dto.Quantity.Value;
+            }
+            else if (currentUserRole == UserRole.Seller ||
+                     currentUserRole == UserRole.Admin)
+            {
+                if (currentUserRole == UserRole.Seller &&
+                    order.Product.UserId != currentUserId)
+                {
+                    return ServiceResult<bool>.Failure(
+                        ServiceError.Forbidden,
+                        "You do not have permission to update this order.");
+                }
+
+                if (!dto.Status.HasValue || dto.Quantity.HasValue)
+                {
+                    return ServiceResult<bool>.Failure(
+                        ServiceError.InvalidReference,
+                        "Seller and Admin can only update order status.");
+                }
+
+                if (!Enum.IsDefined(typeof(OrderStatus), dto.Status.Value))
+                {
+                    return ServiceResult<bool>.Failure(
+                        ServiceError.InvalidReference,
+                        "The specified order status is invalid.");
+                }
+
+                order.Status = dto.Status.Value;
+            }
+            else
             {
                 return ServiceResult<bool>.Failure(
                     ServiceError.Forbidden,
                     "You do not have permission to update this order.");
             }
-
-            if (!Enum.IsDefined(typeof(OrderStatus), dto.Status))
-            {
-                return ServiceResult<bool>.Failure(
-                    ServiceError.InvalidReference,
-                    "The specified order status is invalid.");
-            }
-
-            order.Status = dto.Status;
 
             await _orderRepository.UpdateOrder(order);
 

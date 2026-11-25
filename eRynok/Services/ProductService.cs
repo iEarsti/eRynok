@@ -54,9 +54,23 @@ namespace eRynok.Services
                     "Категорію не знайдено.");
             }
 
-            // Продавець створює товар від власного імені.
-            // Адміністратор може вказати ID будь-якого продавця.
-            int sellerId = isAdmin ? dto.UserId : currentUserId;
+            int sellerId;
+
+            if (isAdmin)
+            {
+                if (!dto.UserId.HasValue)
+                {
+                    return ServiceResult<ProductResponseDto>.Failure(
+                        ServiceError.InvalidReference,
+                        "Адміністратор повинен вказати продавця.");
+                }
+
+                sellerId = dto.UserId.Value;
+            }
+            else
+            {
+                sellerId = currentUserId;
+            }
 
             bool sellerExists = await _productRepository.SellerExists(sellerId);
 
@@ -84,10 +98,10 @@ namespace eRynok.Services
         }
 
         public async Task<ServiceResult<bool>> UpdateProduct(
-            int id,
-            UpdateProductDto dto,
-            int currentUserId,
-            bool isAdmin)
+    int id,
+    UpdateProductDto dto,
+    int currentUserId,
+    bool isAdmin)
         {
             var product = await _productRepository.GetProduct(id);
 
@@ -98,7 +112,6 @@ namespace eRynok.Services
                     "Товар не знайдено.");
             }
 
-            // Продавець може редагувати лише власний товар.
             if (!isAdmin && product.UserId != currentUserId)
             {
                 return ServiceResult<bool>.Failure(
@@ -115,10 +128,9 @@ namespace eRynok.Services
                     "Категорію не знайдено.");
             }
 
-            // Змінювати власника товару може лише адміністратор.
-            if (isAdmin)
+            if (isAdmin && dto.UserId.HasValue)
             {
-                bool sellerExists = await _productRepository.SellerExists(dto.UserId);
+                bool sellerExists = await _productRepository.SellerExists(dto.UserId.Value);
 
                 if (!sellerExists)
                 {
@@ -127,7 +139,7 @@ namespace eRynok.Services
                         "Продавця не знайдено.");
                 }
 
-                product.UserId = dto.UserId;
+                product.UserId = dto.UserId.Value;
             }
 
             product.Name = dto.Name.Trim();
@@ -155,7 +167,6 @@ namespace eRynok.Services
                     "Товар не знайдено.");
             }
 
-            // Продавець може видаляти лише власний товар.
             if (!isAdmin && product.UserId != currentUserId)
             {
                 return ServiceResult<bool>.Failure(
